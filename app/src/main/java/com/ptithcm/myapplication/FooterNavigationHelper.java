@@ -51,8 +51,8 @@ public final class FooterNavigationHelper {
                 return true;
             }
             if (itemId == R.id.menu_projects) {
-                Toast.makeText(activity, "Chuc nang quan ly du an se lam o task tiep theo.", Toast.LENGTH_SHORT).show();
-                return false;
+                open(activity, ProjectManagementActivity.class);
+                return true;
             }
             if (itemId == R.id.menu_tasks) {
                 Toast.makeText(activity, "Chuc nang quan ly cong viec se lam o task tiep theo.", Toast.LENGTH_SHORT).show();

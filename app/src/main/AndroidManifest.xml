@@ -12,6 +12,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
         <activity
+            android:name=".ProjectManagementActivity"
+            android:exported="false" />
+        <activity
             android:name=".UserManagementActivity"
             android:exported="false" />
         <activity
