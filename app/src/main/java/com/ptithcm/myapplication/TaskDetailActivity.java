@@ -22,6 +22,8 @@ import com.ptithcm.myapplication.auth.AuthManager;
 import com.ptithcm.myapplication.auth.User;
 import com.ptithcm.myapplication.project.Project;
 import com.ptithcm.myapplication.project.ProjectManager;
+import com.ptithcm.myapplication.task.TaskActivityLog;
+import com.ptithcm.myapplication.task.TaskActivityLogManager;
 import com.ptithcm.myapplication.task.TaskItem;
 import com.ptithcm.myapplication.task.TaskManager;
 import com.ptithcm.myapplication.task.TaskNote;
@@ -40,6 +42,7 @@ public class TaskDetailActivity extends AppCompatActivity {
     private ProjectManager projectManager;
     private TaskManager taskManager;
     private TaskNoteManager noteManager;
+    private TaskActivityLogManager activityLogManager;
     private User currentUser;
     private TaskItem currentTask;
     private String taskId;
@@ -51,6 +54,7 @@ public class TaskDetailActivity extends AppCompatActivity {
     private Spinner statusSpinner;
     private EditText noteInput;
     private LinearLayout notesContainer;
+    private LinearLayout activityLogsContainer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,6 +64,7 @@ public class TaskDetailActivity extends AppCompatActivity {
         projectManager = new ProjectManager(this);
         taskManager = new TaskManager(this);
         noteManager = new TaskNoteManager(this);
+        activityLogManager = new TaskActivityLogManager(this);
         currentUser = authManager.getCurrentUser();
 
         if (currentUser == null) {
@@ -97,6 +102,7 @@ public class TaskDetailActivity extends AppCompatActivity {
         statusSpinner = findViewById(R.id.taskDetailStatusSpinner);
         noteInput = findViewById(R.id.taskNoteInput);
         notesContainer = findViewById(R.id.taskNotesContainer);
+        activityLogsContainer = findViewById(R.id.taskActivityLogsContainer);
     }
 
     private void setupStatusSpinner() {
@@ -203,6 +209,7 @@ public class TaskDetailActivity extends AppCompatActivity {
                 return;
             }
 
+            logTaskUpdate(currentTask, result.getTask());
             Toast.makeText(this, "Đã cập nhật công việc.", Toast.LENGTH_SHORT).show();
             dialog.dismiss();
             renderTask();
@@ -331,13 +338,23 @@ public class TaskDetailActivity extends AppCompatActivity {
                 : "Tags: " + currentTask.getTags());
         setSelectedStatus(currentTask.getStatus());
         renderNotes();
+        renderActivityLogs();
     }
 
     private void saveStatus() {
         String selectedStatus = (String) statusSpinner.getSelectedItem();
+        String oldStatus = currentTask == null ? "" : currentTask.getStatus();
         TaskManager.TaskResult result = taskManager.updateStatus(taskId, selectedStatus);
         Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
         if (result.isSuccessful()) {
+            if (!oldStatus.equals(result.getTask().getStatus())) {
+                activityLogManager.addLog(
+                        taskId,
+                        currentUser,
+                        TaskActivityLogManager.ACTION_STATUS_CHANGED,
+                        "đã đổi trạng thái từ " + oldStatus + " sang " + result.getTask().getStatus()
+                );
+            }
             renderTask();
         }
     }
@@ -352,8 +369,15 @@ public class TaskDetailActivity extends AppCompatActivity {
             Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
             return;
         }
+        activityLogManager.addLog(
+                taskId,
+                currentUser,
+                TaskActivityLogManager.ACTION_NOTE_ADDED,
+                "đã thêm ghi chú"
+        );
         noteInput.setText("");
         renderNotes();
+        renderActivityLogs();
     }
 
     private void renderNotes() {
@@ -409,6 +433,78 @@ public class TaskDetailActivity extends AppCompatActivity {
         content.addView(contentText);
         card.addView(content);
         return card;
+    }
+
+    private void logTaskUpdate(TaskItem oldTask, TaskItem updatedTask) {
+        if (oldTask == null || updatedTask == null) {
+            return;
+        }
+        if (!oldTask.getStatus().equals(updatedTask.getStatus())) {
+            activityLogManager.addLog(
+                    updatedTask.getId(),
+                    currentUser,
+                    TaskActivityLogManager.ACTION_STATUS_CHANGED,
+                    "đã đổi trạng thái từ " + oldTask.getStatus() + " sang " + updatedTask.getStatus()
+            );
+            return;
+        }
+        activityLogManager.addLog(
+                updatedTask.getId(),
+                currentUser,
+                TaskActivityLogManager.ACTION_UPDATED,
+                "đã cập nhật thông tin công việc"
+        );
+    }
+
+    private void renderActivityLogs() {
+        activityLogsContainer.removeAllViews();
+        List<TaskActivityLog> logs = activityLogManager.getLogs(taskId);
+        if (logs.isEmpty()) {
+            TextView emptyText = new TextView(this);
+            emptyText.setText("Chưa có lịch sử hoạt động.");
+            emptyText.setTextColor(getColor(R.color.auth_body));
+            emptyText.setTextSize(15);
+            emptyText.setPadding(0, dp(12), 0, 0);
+            activityLogsContainer.addView(emptyText);
+            return;
+        }
+
+        for (TaskActivityLog log : logs) {
+            MaterialCardView card = new MaterialCardView(this);
+            card.setCardBackgroundColor(getColor(R.color.surface_white));
+            card.setRadius(dp(12));
+            card.setCardElevation(dp(1));
+            card.setStrokeWidth(dp(1));
+            card.setStrokeColor(getColor(R.color.card_stroke));
+
+            LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            cardParams.setMargins(0, dp(10), 0, 0);
+            card.setLayoutParams(cardParams);
+
+            LinearLayout content = new LinearLayout(this);
+            content.setOrientation(LinearLayout.VERTICAL);
+            content.setPadding(dp(14), dp(12), dp(14), dp(12));
+
+            TextView actorText = new TextView(this);
+            actorText.setText(log.getActorUsername() + " (" + log.getActorRole() + ") - " + log.getCreatedAt());
+            actorText.setTextColor(getColor(R.color.auth_title));
+            actorText.setTextSize(14);
+            actorText.setTypeface(null, Typeface.BOLD);
+
+            TextView messageText = new TextView(this);
+            messageText.setText(log.getMessage());
+            messageText.setTextColor(getColor(R.color.auth_body));
+            messageText.setTextSize(15);
+            messageText.setPadding(0, dp(6), 0, 0);
+
+            content.addView(actorText);
+            content.addView(messageText);
+            card.addView(content);
+            activityLogsContainer.addView(card);
+        }
     }
 
     private void setSelectedStatus(String status) {

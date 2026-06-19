@@ -32,6 +32,8 @@ import com.ptithcm.myapplication.auth.User;
 import com.ptithcm.myapplication.auth.UserRole;
 import com.ptithcm.myapplication.project.Project;
 import com.ptithcm.myapplication.project.ProjectManager;
+import com.ptithcm.myapplication.task.TaskActivityLog;
+import com.ptithcm.myapplication.task.TaskActivityLogManager;
 import com.ptithcm.myapplication.task.TaskAttachment;
 import com.ptithcm.myapplication.task.TaskAttachmentManager;
 import com.ptithcm.myapplication.task.TaskItem;
@@ -53,6 +55,7 @@ public class TaskManagementActivity extends AppCompatActivity {
     private TaskManager taskManager;
     private TaskNoteManager noteManager;
     private TaskAttachmentManager attachmentManager;
+    private TaskActivityLogManager activityLogManager;
     private User currentUser;
     private LinearLayout tasksContainer;
     private EditText searchInput;
@@ -63,6 +66,7 @@ public class TaskManagementActivity extends AppCompatActivity {
     private boolean showDeleted;
     private String pendingAttachmentTaskId;
     private LinearLayout activeAttachmentsContainer;
+    private LinearLayout activeLogsContainer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,6 +77,7 @@ public class TaskManagementActivity extends AppCompatActivity {
         taskManager = new TaskManager(this);
         noteManager = new TaskNoteManager(this);
         attachmentManager = new TaskAttachmentManager(this);
+        activityLogManager = new TaskActivityLogManager(this);
         currentUser = authManager.getCurrentUser();
 
         if (currentUser == null) {
@@ -313,6 +318,16 @@ public class TaskManagementActivity extends AppCompatActivity {
                 return;
             }
 
+            if (editing) {
+                logTaskUpdate(task, result.getTask());
+            } else {
+                activityLogManager.addLog(
+                        result.getTask().getId(),
+                        currentUser,
+                        TaskActivityLogManager.ACTION_CREATED,
+                        "đã tạo công việc \"" + result.getTask().getTitle() + "\""
+                );
+            }
             Toast.makeText(this, editing ? "Đã cập nhật công việc." : "Đã tạo công việc.", Toast.LENGTH_SHORT).show();
             dialog.dismiss();
             renderTasks();
@@ -602,6 +617,12 @@ public class TaskManagementActivity extends AppCompatActivity {
         TaskManager.TaskResult result = taskManager.setDeleted(task.getId(), deleted);
         Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
         if (result.isSuccessful()) {
+            activityLogManager.addLog(
+                    task.getId(),
+                    currentUser,
+                    deleted ? TaskActivityLogManager.ACTION_DELETED : TaskActivityLogManager.ACTION_RESTORED,
+                    deleted ? "đã đưa công việc vào thùng rác" : "đã khôi phục công việc"
+            );
             renderTasks();
         }
     }
@@ -618,6 +639,8 @@ public class TaskManagementActivity extends AppCompatActivity {
         EditText noteInput = dialog.findViewById(R.id.dialogTaskNoteInput);
         LinearLayout notesContainer = dialog.findViewById(R.id.dialogTaskNotesContainer);
         LinearLayout attachmentsContainer = dialog.findViewById(R.id.dialogTaskAttachmentsContainer);
+        LinearLayout activityLogsContainer = dialog.findViewById(R.id.dialogTaskActivityLogsContainer);
+        activeLogsContainer = activityLogsContainer;
         Button addNoteButton = dialog.findViewById(R.id.dialogAddTaskNoteButton);
         Button addAttachmentButton = dialog.findViewById(R.id.dialogAddTaskAttachmentButton);
         Button editFullButton = dialog.findViewById(R.id.dialogEditFullTaskButton);
@@ -626,6 +649,7 @@ public class TaskManagementActivity extends AppCompatActivity {
         renderTaskDetailContent(task, titleText, metaText, descriptionText, tagsText);
         renderTaskNotes(task.getId(), notesContainer);
         renderTaskAttachments(task.getId(), attachmentsContainer);
+        renderTaskActivityLogs(task.getId(), activityLogsContainer);
 
         addNoteButton.setOnClickListener(view -> {
             TaskNoteManager.NoteResult result = noteManager.addNote(
@@ -637,10 +661,17 @@ public class TaskManagementActivity extends AppCompatActivity {
                 Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
                 return;
             }
+            activityLogManager.addLog(
+                    task.getId(),
+                    currentUser,
+                    TaskActivityLogManager.ACTION_NOTE_ADDED,
+                    "đã thêm ghi chú"
+            );
             noteInput.setText("");
             renderTaskNotes(task.getId(), notesContainer);
+            renderTaskActivityLogs(task.getId(), activityLogsContainer);
         });
-        addAttachmentButton.setOnClickListener(view -> openAttachmentPicker(task.getId(), attachmentsContainer));
+        addAttachmentButton.setOnClickListener(view -> openAttachmentPicker(task.getId(), attachmentsContainer, activityLogsContainer));
         editFullButton.setVisibility(canUpdateTask(task) ? View.VISIBLE : View.GONE);
         editFullButton.setText(currentUser.getRole().canAssignTasks() ? "Sửa công việc" : "Sửa trạng thái");
         editFullButton.setOnClickListener(view -> {
@@ -730,9 +761,10 @@ public class TaskManagementActivity extends AppCompatActivity {
         }
     }
 
-    private void openAttachmentPicker(String taskId, LinearLayout attachmentsContainer) {
+    private void openAttachmentPicker(String taskId, LinearLayout attachmentsContainer, LinearLayout logsContainer) {
         pendingAttachmentTaskId = taskId;
         activeAttachmentsContainer = attachmentsContainer;
+        activeLogsContainer = logsContainer;
 
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -782,7 +814,16 @@ public class TaskManagementActivity extends AppCompatActivity {
         );
         Toast.makeText(this, result.isSuccessful() ? "Đã thêm file đính kèm." : result.getMessage(), Toast.LENGTH_SHORT).show();
         if (result.isSuccessful() && activeAttachmentsContainer != null) {
+            activityLogManager.addLog(
+                    pendingAttachmentTaskId,
+                    currentUser,
+                    TaskActivityLogManager.ACTION_ATTACHMENT_ADDED,
+                    "đã thêm file \"" + result.getAttachment().getName() + "\""
+            );
             renderTaskAttachments(pendingAttachmentTaskId, activeAttachmentsContainer);
+            if (activeLogsContainer != null) {
+                renderTaskActivityLogs(pendingAttachmentTaskId, activeLogsContainer);
+            }
         }
     }
 
@@ -851,7 +892,16 @@ public class TaskManagementActivity extends AppCompatActivity {
                 TaskAttachmentManager.AttachmentResult result = attachmentManager.deleteAttachment(attachment.getId());
                 Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
                 if (result.isSuccessful()) {
+                    activityLogManager.addLog(
+                            taskId,
+                            currentUser,
+                            TaskActivityLogManager.ACTION_ATTACHMENT_DELETED,
+                            "đã xóa file \"" + attachment.getName() + "\""
+                    );
                     renderTaskAttachments(taskId, attachmentsContainer);
+                    if (activeLogsContainer != null) {
+                        renderTaskActivityLogs(taskId, activeLogsContainer);
+                    }
                 }
             });
 
@@ -889,6 +939,78 @@ public class TaskManagementActivity extends AppCompatActivity {
             return lastPathSegment.substring(separatorIndex + 1);
         }
         return lastPathSegment;
+    }
+
+    private void logTaskUpdate(TaskItem oldTask, TaskItem updatedTask) {
+        if (oldTask == null || updatedTask == null) {
+            return;
+        }
+        if (!oldTask.getStatus().equals(updatedTask.getStatus())) {
+            activityLogManager.addLog(
+                    updatedTask.getId(),
+                    currentUser,
+                    TaskActivityLogManager.ACTION_STATUS_CHANGED,
+                    "đã đổi trạng thái từ " + oldTask.getStatus() + " sang " + updatedTask.getStatus()
+            );
+            return;
+        }
+        activityLogManager.addLog(
+                updatedTask.getId(),
+                currentUser,
+                TaskActivityLogManager.ACTION_UPDATED,
+                "đã cập nhật thông tin công việc"
+        );
+    }
+
+    private void renderTaskActivityLogs(String taskId, LinearLayout logsContainer) {
+        logsContainer.removeAllViews();
+        List<TaskActivityLog> logs = activityLogManager.getLogs(taskId);
+        if (logs.isEmpty()) {
+            TextView emptyText = new TextView(this);
+            emptyText.setText("Chưa có lịch sử hoạt động.");
+            emptyText.setTextColor(getColor(R.color.auth_body));
+            emptyText.setTextSize(15);
+            emptyText.setPadding(0, dp(10), 0, 0);
+            logsContainer.addView(emptyText);
+            return;
+        }
+
+        for (TaskActivityLog log : logs) {
+            MaterialCardView card = new MaterialCardView(this);
+            card.setCardBackgroundColor(getColor(R.color.surface_white));
+            card.setRadius(dp(10));
+            card.setCardElevation(dp(1));
+            card.setStrokeWidth(dp(1));
+            card.setStrokeColor(getColor(R.color.card_stroke));
+
+            LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            cardParams.setMargins(0, dp(8), 0, 0);
+            card.setLayoutParams(cardParams);
+
+            LinearLayout content = new LinearLayout(this);
+            content.setOrientation(LinearLayout.VERTICAL);
+            content.setPadding(dp(12), dp(10), dp(12), dp(10));
+
+            TextView actorText = new TextView(this);
+            actorText.setText(log.getActorUsername() + " (" + log.getActorRole() + ") - " + log.getCreatedAt());
+            actorText.setTextColor(getColor(R.color.auth_title));
+            actorText.setTextSize(14);
+            actorText.setTypeface(null, Typeface.BOLD);
+
+            TextView messageText = new TextView(this);
+            messageText.setText(log.getMessage());
+            messageText.setTextColor(getColor(R.color.auth_body));
+            messageText.setTextSize(15);
+            messageText.setPadding(0, dp(6), 0, 0);
+
+            content.addView(actorText);
+            content.addView(messageText);
+            card.addView(content);
+            logsContainer.addView(card);
+        }
     }
 
     private int dp(int value) {
