@@ -158,10 +158,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindActions() {
+        Button profileButton = findViewById(R.id.profileButton);
         Button settingsButton = findViewById(R.id.settingsButton);
         Button changePasswordButton = findViewById(R.id.changePasswordButton);
         Button logoutButton = findViewById(R.id.logoutButton);
 
+        profileButton.setOnClickListener(view ->
+                startActivity(new Intent(this, ProfileActivity.class))
+        );
         settingsButton.setOnClickListener(view ->
                 startActivity(new Intent(this, SettingsActivity.class))
         );

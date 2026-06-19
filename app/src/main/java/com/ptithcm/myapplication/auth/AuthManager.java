@@ -168,6 +168,27 @@ public class AuthManager {
         return AuthResult.failure("Không tìm thấy tài khoản cần cập nhật.");
     }
 
+    public AuthResult updateCurrentUserProfile(String fullName, String avatarUri) {
+        User currentUser = getCurrentUser();
+        if (currentUser == null) {
+            return AuthResult.failure("Phiên đăng nhập đã hết hạn.");
+        }
+
+        String normalizedFullName = normalizeFullName(fullName, currentUser.getUsername());
+        List<User> users = getUsers();
+        for (int i = 0; i < users.size(); i++) {
+            User user = users.get(i);
+            if (user.getUsername().equals(currentUser.getUsername())) {
+                User updatedUser = user.withPersonalProfile(normalizedFullName, avatarUri);
+                users.set(i, updatedUser);
+                saveUsers(users);
+                return AuthResult.success(updatedUser);
+            }
+        }
+
+        return AuthResult.failure("Không tìm thấy tài khoản hiện tại.");
+    }
+
     public AuthResult deleteUser(String username) {
         String normalizedUsername = normalizeUsername(username);
         User currentUser = getCurrentUser();
