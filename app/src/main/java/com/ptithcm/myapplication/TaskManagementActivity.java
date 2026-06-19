@@ -6,8 +6,11 @@ import android.content.res.ColorStateList;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
 import android.view.Window;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CompoundButton;
@@ -45,6 +48,11 @@ public class TaskManagementActivity extends AppCompatActivity {
     private TaskNoteManager noteManager;
     private User currentUser;
     private LinearLayout tasksContainer;
+    private EditText searchInput;
+    private Spinner statusFilterSpinner;
+    private Spinner priorityFilterSpinner;
+    private Spinner projectFilterSpinner;
+    private List<Project> filterProjects = new ArrayList<>();
     private boolean showDeleted;
 
     @Override
@@ -64,7 +72,12 @@ public class TaskManagementActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_task_management);
         tasksContainer = findViewById(R.id.tasksContainer);
+        searchInput = findViewById(R.id.taskSearchInput);
+        statusFilterSpinner = findViewById(R.id.taskStatusFilterSpinner);
+        priorityFilterSpinner = findViewById(R.id.taskPriorityFilterSpinner);
+        projectFilterSpinner = findViewById(R.id.taskProjectFilterSpinner);
         FooterNavigationHelper.bind(this, R.id.menu_tasks);
+        setupFilters();
         bindActions();
         renderTasks();
     }
@@ -73,10 +86,13 @@ public class TaskManagementActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         FooterNavigationHelper.bind(this, R.id.menu_tasks);
+        setupProjectFilter();
+        renderTasks();
     }
 
     private void bindActions() {
         Button createTaskButton = findViewById(R.id.openCreateTaskDialogButton);
+        Button clearFiltersButton = findViewById(R.id.clearTaskFiltersButton);
         Switch deletedSwitch = findViewById(R.id.showDeletedTasksSwitch);
 
         createTaskButton.setVisibility(currentUser.getRole().canAssignTasks() ? View.VISIBLE : View.GONE);
@@ -85,6 +101,85 @@ public class TaskManagementActivity extends AppCompatActivity {
             showDeleted = isChecked;
             renderTasks();
         });
+        clearFiltersButton.setOnClickListener(view -> clearFilters());
+    }
+
+    private void setupFilters() {
+        setupTextSearch();
+        setupStatusFilter();
+        setupPriorityFilter();
+        setupProjectFilter();
+    }
+
+    private void setupTextSearch() {
+        searchInput.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence text, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence text, int start, int before, int count) {
+                renderTasks();
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+            }
+        });
+    }
+
+    private void setupStatusFilter() {
+        List<String> choices = new ArrayList<>();
+        choices.add("Tất cả trạng thái");
+        for (String status : TaskStatus.values()) {
+            choices.add(status);
+        }
+        setFilterAdapter(statusFilterSpinner, choices);
+        statusFilterSpinner.setOnItemSelectedListener(new FilterChangeListener());
+    }
+
+    private void setupPriorityFilter() {
+        List<String> choices = new ArrayList<>();
+        choices.add("Tất cả ưu tiên");
+        for (String priority : TaskPriority.values()) {
+            choices.add(priority);
+        }
+        setFilterAdapter(priorityFilterSpinner, choices);
+        priorityFilterSpinner.setOnItemSelectedListener(new FilterChangeListener());
+    }
+
+    private void setupProjectFilter() {
+        String selectedProjectId = getSelectedFilterProjectId();
+        filterProjects = projectManager.getProjects();
+
+        List<String> labels = new ArrayList<>();
+        labels.add("Tất cả dự án");
+        int selectedIndex = 0;
+        for (int i = 0; i < filterProjects.size(); i++) {
+            Project project = filterProjects.get(i);
+            labels.add(project.getName().isEmpty() ? "N/A" : project.getName());
+            if (project.getId().equals(selectedProjectId)) {
+                selectedIndex = i + 1;
+            }
+        }
+
+        setFilterAdapter(projectFilterSpinner, labels);
+        projectFilterSpinner.setSelection(selectedIndex);
+        projectFilterSpinner.setOnItemSelectedListener(new FilterChangeListener());
+    }
+
+    private void setFilterAdapter(Spinner spinner, List<String> choices) {
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, choices);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+    }
+
+    private void clearFilters() {
+        searchInput.setText("");
+        statusFilterSpinner.setSelection(0);
+        priorityFilterSpinner.setSelection(0);
+        projectFilterSpinner.setSelection(0);
+        renderTasks();
     }
 
     private void showTaskDialog(TaskItem task) {
@@ -320,17 +415,76 @@ public class TaskManagementActivity extends AppCompatActivity {
             if (!canSeeTask(task)) {
                 continue;
             }
+            if (!matchesFilters(task)) {
+                continue;
+            }
             tasksContainer.addView(createTaskCard(task));
             hasVisibleTask = true;
         }
         if (!hasVisibleTask) {
             TextView emptyText = new TextView(this);
-            emptyText.setText(showDeleted ? "Thùng rác đang trống." : "Chưa có công việc nào.");
+            emptyText.setText(hasActiveFilters() ? "Không tìm thấy công việc phù hợp." :
+                    (showDeleted ? "Thùng rác đang trống." : "Chưa có công việc nào."));
             emptyText.setTextColor(getColor(R.color.auth_body));
             emptyText.setTextSize(15);
             emptyText.setPadding(0, dp(16), 0, 0);
             tasksContainer.addView(emptyText);
         }
+    }
+
+    private boolean matchesFilters(TaskItem task) {
+        String keyword = searchInput.getText().toString().trim().toLowerCase();
+        if (!keyword.isEmpty() && !getSearchText(task).contains(keyword)) {
+            return false;
+        }
+
+        String selectedStatus = getSelectedFilterValue(statusFilterSpinner);
+        if (!selectedStatus.isEmpty() && !selectedStatus.equals(task.getStatus())) {
+            return false;
+        }
+
+        String selectedPriority = getSelectedFilterValue(priorityFilterSpinner);
+        if (!selectedPriority.isEmpty() && !selectedPriority.equals(task.getPriority())) {
+            return false;
+        }
+
+        String selectedProjectId = getSelectedFilterProjectId();
+        return selectedProjectId.isEmpty() || selectedProjectId.equals(task.getProjectId());
+    }
+
+    private String getSearchText(TaskItem task) {
+        return (task.getTitle() + " "
+                + task.getDescription() + " "
+                + task.getTags() + " "
+                + task.getAssigneeUsername() + " "
+                + task.getStatus() + " "
+                + task.getPriority() + " "
+                + getProjectName(task.getProjectId())).toLowerCase();
+    }
+
+    private String getSelectedFilterValue(Spinner spinner) {
+        if (spinner == null || spinner.getSelectedItemPosition() <= 0 || spinner.getSelectedItem() == null) {
+            return "";
+        }
+        return spinner.getSelectedItem().toString();
+    }
+
+    private String getSelectedFilterProjectId() {
+        if (projectFilterSpinner == null) {
+            return "";
+        }
+        int selectedIndex = projectFilterSpinner.getSelectedItemPosition();
+        if (selectedIndex <= 0 || selectedIndex - 1 >= filterProjects.size()) {
+            return "";
+        }
+        return filterProjects.get(selectedIndex - 1).getId();
+    }
+
+    private boolean hasActiveFilters() {
+        return !searchInput.getText().toString().trim().isEmpty()
+                || statusFilterSpinner.getSelectedItemPosition() > 0
+                || priorityFilterSpinner.getSelectedItemPosition() > 0
+                || projectFilterSpinner.getSelectedItemPosition() > 0;
     }
 
     private boolean canSeeTask(TaskItem task) {
@@ -561,5 +715,16 @@ public class TaskManagementActivity extends AppCompatActivity {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+
+    private class FilterChangeListener implements AdapterView.OnItemSelectedListener {
+        @Override
+        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+            renderTasks();
+        }
+
+        @Override
+        public void onNothingSelected(AdapterView<?> parent) {
+        }
     }
 }
