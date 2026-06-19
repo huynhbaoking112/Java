@@ -1,6 +1,7 @@
 package com.ptithcm.myapplication;
 
 import android.content.Intent;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -19,6 +20,7 @@ import com.github.mikephil.charting.data.PieData;
 import com.github.mikephil.charting.data.PieDataSet;
 import com.github.mikephil.charting.data.PieEntry;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
+import com.google.android.material.card.MaterialCardView;
 import com.ptithcm.myapplication.auth.AuthManager;
 import com.ptithcm.myapplication.auth.User;
 import com.ptithcm.myapplication.auth.UserRole;
@@ -48,6 +50,7 @@ public class ReportsActivity extends AppCompatActivity {
     private LinearLayout statusReportContainer;
     private LinearLayout projectReportContainer;
     private LinearLayout assigneeReportContainer;
+    private LinearLayout projectProgressContainer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,6 +85,7 @@ public class ReportsActivity extends AppCompatActivity {
         statusReportContainer = findViewById(R.id.statusReportContainer);
         projectReportContainer = findViewById(R.id.projectReportContainer);
         assigneeReportContainer = findViewById(R.id.assigneeReportContainer);
+        projectProgressContainer = findViewById(R.id.projectProgressContainer);
     }
 
     private void renderReports() {
@@ -124,6 +128,7 @@ public class ReportsActivity extends AppCompatActivity {
         renderAssigneeReport(visibleTasks);
         renderStatusChart(todo, doing, done, overdue);
         renderProjectChart(visibleTasks);
+        renderProjectProgress(visibleTasks);
     }
 
     private void renderStatusReport(int todo, int doing, int done, int overdue, int highPriority) {
@@ -238,6 +243,141 @@ public class ReportsActivity extends AppCompatActivity {
         legend.setDrawInside(false);
 
         projectBarChart.invalidate();
+    }
+
+    private void renderProjectProgress(List<TaskItem> visibleTasks) {
+        projectProgressContainer.removeAllViews();
+        Map<String, List<TaskItem>> tasksByProject = new HashMap<>();
+        for (TaskItem task : visibleTasks) {
+            if (!tasksByProject.containsKey(task.getProjectId())) {
+                tasksByProject.put(task.getProjectId(), new ArrayList<>());
+            }
+            tasksByProject.get(task.getProjectId()).add(task);
+        }
+
+        if (tasksByProject.isEmpty()) {
+            TextView emptyText = new TextView(this);
+            emptyText.setText("Chưa có dữ liệu tiến độ dự án.");
+            emptyText.setTextColor(getColor(R.color.auth_body));
+            emptyText.setTextSize(14);
+            emptyText.setPadding(0, dp(8), 0, 0);
+            projectProgressContainer.addView(emptyText);
+            return;
+        }
+
+        for (Map.Entry<String, List<TaskItem>> entry : tasksByProject.entrySet()) {
+            projectProgressContainer.addView(createProjectProgressCard(entry.getKey(), entry.getValue()));
+        }
+    }
+
+    private MaterialCardView createProjectProgressCard(String projectId, List<TaskItem> projectTasks) {
+        int total = projectTasks.size();
+        int done = 0;
+        for (TaskItem task : projectTasks) {
+            if (TaskStatus.DONE.equals(task.getStatus())) {
+                done++;
+            }
+        }
+        int percent = total == 0 ? 0 : Math.round((done * 100f) / total);
+
+        MaterialCardView card = new MaterialCardView(this);
+        card.setCardBackgroundColor(getColor(R.color.surface_white));
+        card.setRadius(dp(10));
+        card.setCardElevation(dp(1));
+        card.setStrokeColor(getColor(R.color.card_stroke));
+        card.setStrokeWidth(dp(1));
+
+        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        cardParams.setMargins(0, dp(10), 0, 0);
+        card.setLayoutParams(cardParams);
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(14), dp(12), dp(14), dp(12));
+
+        TextView titleText = new TextView(this);
+        titleText.setText(getProjectName(projectId));
+        titleText.setTextColor(getColor(R.color.auth_title));
+        titleText.setTextSize(16);
+        titleText.setTypeface(null, Typeface.BOLD);
+
+        TextView progressText = new TextView(this);
+        progressText.setText("Hoàn thành: " + done + "/" + total + " task (" + percent + "%)");
+        progressText.setTextColor(getColor(R.color.primary_blue));
+        progressText.setTextSize(15);
+        progressText.setTypeface(null, Typeface.BOLD);
+        progressText.setPadding(0, dp(6), 0, 0);
+
+        TextView tasksTitle = createSectionTitle("Danh sách task");
+        LinearLayout taskRows = new LinearLayout(this);
+        taskRows.setOrientation(LinearLayout.VERTICAL);
+        for (TaskItem task : projectTasks) {
+            TextView taskText = new TextView(this);
+            taskText.setText("- " + task.getTitle()
+                    + " | " + task.getStatus()
+                    + " | " + task.getAssigneeUsername()
+                    + " | " + (task.getDueDate().isEmpty() ? "N/A" : task.getDueDate()));
+            taskText.setTextColor(getColor(R.color.auth_body));
+            taskText.setTextSize(14);
+            taskText.setPadding(0, dp(4), 0, 0);
+            taskRows.addView(taskText);
+        }
+
+        TextView membersTitle = createSectionTitle("Hiệu suất thành viên");
+        LinearLayout memberRows = new LinearLayout(this);
+        memberRows.setOrientation(LinearLayout.VERTICAL);
+        Map<String, int[]> memberStats = getMemberStats(projectTasks);
+        for (Map.Entry<String, int[]> memberEntry : memberStats.entrySet()) {
+            int[] stats = memberEntry.getValue();
+            int memberTotal = stats[0];
+            int memberDone = stats[1];
+            int memberPercent = memberTotal == 0 ? 0 : Math.round((memberDone * 100f) / memberTotal);
+
+            TextView memberText = new TextView(this);
+            memberText.setText(memberEntry.getKey() + ": " + memberDone + "/" + memberTotal + " hoàn thành (" + memberPercent + "%)");
+            memberText.setTextColor(getColor(R.color.auth_body));
+            memberText.setTextSize(14);
+            memberText.setPadding(0, dp(4), 0, 0);
+            memberRows.addView(memberText);
+        }
+
+        content.addView(titleText);
+        content.addView(progressText);
+        content.addView(tasksTitle);
+        content.addView(taskRows);
+        content.addView(membersTitle);
+        content.addView(memberRows);
+        card.addView(content);
+        return card;
+    }
+
+    private Map<String, int[]> getMemberStats(List<TaskItem> projectTasks) {
+        Map<String, int[]> stats = new HashMap<>();
+        for (TaskItem task : projectTasks) {
+            String username = task.getAssigneeUsername().isEmpty() ? "N/A" : task.getAssigneeUsername();
+            if (!stats.containsKey(username)) {
+                stats.put(username, new int[]{0, 0});
+            }
+            int[] values = stats.get(username);
+            values[0]++;
+            if (TaskStatus.DONE.equals(task.getStatus())) {
+                values[1]++;
+            }
+        }
+        return stats;
+    }
+
+    private TextView createSectionTitle(String value) {
+        TextView textView = new TextView(this);
+        textView.setText(value);
+        textView.setTextColor(getColor(R.color.auth_title));
+        textView.setTextSize(15);
+        textView.setTypeface(null, Typeface.BOLD);
+        textView.setPadding(0, dp(12), 0, 0);
+        return textView;
     }
 
     private void renderAssigneeReport(List<TaskItem> visibleTasks) {
