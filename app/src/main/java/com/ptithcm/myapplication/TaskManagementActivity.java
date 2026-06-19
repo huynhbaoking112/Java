@@ -1,0 +1,437 @@
+package com.ptithcm.myapplication;
+
+import android.app.Activity;
+import android.app.DatePickerDialog;
+import android.app.Dialog;
+import android.content.res.ColorStateList;
+import android.content.Intent;
+import android.graphics.Typeface;
+import android.os.Bundle;
+import android.view.View;
+import android.view.Window;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.CompoundButton;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.Spinner;
+import android.widget.Switch;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
+import com.ptithcm.myapplication.auth.AuthManager;
+import com.ptithcm.myapplication.auth.User;
+import com.ptithcm.myapplication.auth.UserRole;
+import com.ptithcm.myapplication.project.Project;
+import com.ptithcm.myapplication.project.ProjectManager;
+import com.ptithcm.myapplication.task.TaskItem;
+import com.ptithcm.myapplication.task.TaskManager;
+import com.ptithcm.myapplication.task.TaskPriority;
+import com.ptithcm.myapplication.task.TaskStatus;
+
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.List;
+
+public class TaskManagementActivity extends Activity {
+    private AuthManager authManager;
+    private ProjectManager projectManager;
+    private TaskManager taskManager;
+    private User currentUser;
+    private LinearLayout tasksContainer;
+    private boolean showDeleted;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        authManager = new AuthManager(this);
+        projectManager = new ProjectManager(this);
+        taskManager = new TaskManager(this);
+        currentUser = authManager.getCurrentUser();
+
+        if (currentUser == null) {
+            openLoginScreen();
+            return;
+        }
+
+        setContentView(R.layout.activity_task_management);
+        tasksContainer = findViewById(R.id.tasksContainer);
+        FooterNavigationHelper.bind(this, R.id.menu_tasks);
+        bindActions();
+        renderTasks();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        FooterNavigationHelper.bind(this, R.id.menu_tasks);
+    }
+
+    private void bindActions() {
+        Button createTaskButton = findViewById(R.id.openCreateTaskDialogButton);
+        Switch deletedSwitch = findViewById(R.id.showDeletedTasksSwitch);
+
+        createTaskButton.setVisibility(currentUser.getRole().canAssignTasks() ? View.VISIBLE : View.GONE);
+        createTaskButton.setOnClickListener(view -> showTaskDialog(null));
+        deletedSwitch.setOnCheckedChangeListener((CompoundButton buttonView, boolean isChecked) -> {
+            showDeleted = isChecked;
+            renderTasks();
+        });
+    }
+
+    private void showTaskDialog(TaskItem task) {
+        List<Project> projects = projectManager.getProjects();
+        if (projects.isEmpty()) {
+            Toast.makeText(this, "Vui lòng tạo dự án trước.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_task_form);
+
+        TextView titleText = dialog.findViewById(R.id.dialogTaskTitleText);
+        EditText taskTitleInput = dialog.findViewById(R.id.dialogTaskNameInput);
+        EditText descriptionInput = dialog.findViewById(R.id.dialogTaskDescriptionInput);
+        EditText startDateInput = dialog.findViewById(R.id.dialogTaskStartDateInput);
+        EditText dueDateInput = dialog.findViewById(R.id.dialogTaskDueDateInput);
+        EditText tagsInput = dialog.findViewById(R.id.dialogTaskTagsInput);
+        Spinner projectSpinner = dialog.findViewById(R.id.dialogTaskProjectSpinner);
+        Spinner assigneeSpinner = dialog.findViewById(R.id.dialogTaskAssigneeSpinner);
+        Spinner statusSpinner = dialog.findViewById(R.id.dialogTaskStatusSpinner);
+        Spinner prioritySpinner = dialog.findViewById(R.id.dialogTaskPrioritySpinner);
+        TextView errorText = dialog.findViewById(R.id.dialogTaskErrorText);
+        Button saveButton = dialog.findViewById(R.id.dialogSaveTaskButton);
+        Button cancelButton = dialog.findViewById(R.id.dialogCancelTaskButton);
+
+        setupDatePicker(startDateInput);
+        setupDatePicker(dueDateInput);
+        setupProjectSpinner(projectSpinner, projects);
+        setupChoiceSpinner(statusSpinner, TaskStatus.values());
+        setupChoiceSpinner(prioritySpinner, TaskPriority.values());
+
+        boolean editing = task != null;
+        if (editing) {
+            titleText.setText("Sửa công việc");
+            taskTitleInput.setText(task.getTitle());
+            descriptionInput.setText(task.getDescription());
+            startDateInput.setText(task.getStartDate());
+            dueDateInput.setText(task.getDueDate());
+            tagsInput.setText(task.getTags());
+            setSelectedProject(projectSpinner, projects, task.getProjectId());
+            setSelectedChoice(statusSpinner, task.getStatus());
+            setSelectedChoice(prioritySpinner, task.getPriority());
+            saveButton.setText("Cập nhật công việc");
+        } else {
+            titleText.setText("Tạo công việc");
+            setSelectedChoice(statusSpinner, TaskStatus.TODO);
+            setSelectedChoice(prioritySpinner, TaskPriority.MEDIUM);
+            saveButton.setText("Tạo công việc");
+        }
+
+        setupAssigneeSpinner(assigneeSpinner, getSelectedProject(projectSpinner, projects));
+        if (editing) {
+            setSelectedAssignee(assigneeSpinner, task.getAssigneeUsername());
+        }
+        projectSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                setupAssigneeSpinner(assigneeSpinner, projects.get(position));
+                if (editing && projects.get(position).getId().equals(task.getProjectId())) {
+                    setSelectedAssignee(assigneeSpinner, task.getAssigneeUsername());
+                }
+            }
+
+            @Override
+            public void onNothingSelected(android.widget.AdapterView<?> parent) {
+            }
+        });
+
+        boolean canEditAll = currentUser.getRole().canAssignTasks();
+        if (!canEditAll) {
+            taskTitleInput.setEnabled(false);
+            descriptionInput.setEnabled(false);
+            projectSpinner.setEnabled(false);
+            assigneeSpinner.setEnabled(false);
+            prioritySpinner.setEnabled(false);
+            startDateInput.setEnabled(false);
+            dueDateInput.setEnabled(false);
+            tagsInput.setEnabled(false);
+        }
+
+        saveButton.setOnClickListener(view -> {
+            Project selectedProject = getSelectedProject(projectSpinner, projects);
+            String assigneeUsername = getSelectedAssigneeUsername(assigneeSpinner);
+            TaskManager.TaskResult result;
+
+            if (editing) {
+                result = taskManager.updateTask(
+                        task.getId(),
+                        selectedProject == null ? "" : selectedProject.getId(),
+                        taskTitleInput.getText().toString(),
+                        descriptionInput.getText().toString(),
+                        assigneeUsername,
+                        (String) statusSpinner.getSelectedItem(),
+                        (String) prioritySpinner.getSelectedItem(),
+                        startDateInput.getText().toString(),
+                        dueDateInput.getText().toString(),
+                        tagsInput.getText().toString()
+                );
+            } else {
+                result = taskManager.createTask(
+                        selectedProject == null ? "" : selectedProject.getId(),
+                        taskTitleInput.getText().toString(),
+                        descriptionInput.getText().toString(),
+                        assigneeUsername,
+                        (String) statusSpinner.getSelectedItem(),
+                        (String) prioritySpinner.getSelectedItem(),
+                        startDateInput.getText().toString(),
+                        dueDateInput.getText().toString(),
+                        tagsInput.getText().toString()
+                );
+            }
+
+            if (!result.isSuccessful()) {
+                errorText.setText(result.getMessage());
+                return;
+            }
+
+            Toast.makeText(this, editing ? "Đã cập nhật công việc." : "Đã tạo công việc.", Toast.LENGTH_SHORT).show();
+            dialog.dismiss();
+            renderTasks();
+        });
+        cancelButton.setOnClickListener(view -> dialog.dismiss());
+
+        dialog.setOnShowListener(dialogInterface -> {
+            Window window = dialog.getWindow();
+            if (window != null) {
+                window.setLayout(
+                        (int) (getResources().getDisplayMetrics().widthPixels * 0.92f),
+                        (int) (getResources().getDisplayMetrics().heightPixels * 0.86f)
+                );
+            }
+        });
+        dialog.show();
+    }
+
+    private void setupDatePicker(EditText dateInput) {
+        dateInput.setFocusable(false);
+        dateInput.setCursorVisible(false);
+        dateInput.setOnClickListener(view -> showDatePicker(dateInput));
+    }
+
+    private void showDatePicker(EditText dateInput) {
+        Calendar calendar = Calendar.getInstance();
+        String currentValue = dateInput.getText().toString().trim();
+        if (currentValue.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            String[] parts = currentValue.split("-");
+            calendar.set(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) - 1, Integer.parseInt(parts[2]));
+        }
+
+        DatePickerDialog dialog = new DatePickerDialog(
+                this,
+                (view, year, month, dayOfMonth) -> dateInput.setText(String.format("%04d-%02d-%02d", year, month + 1, dayOfMonth)),
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH)
+        );
+        dialog.show();
+    }
+
+    private void setupProjectSpinner(Spinner spinner, List<Project> projects) {
+        List<String> labels = new ArrayList<>();
+        for (Project project : projects) {
+            labels.add(project.getName());
+        }
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+    }
+
+    private void setupChoiceSpinner(Spinner spinner, String[] choices) {
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, choices);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+    }
+
+    private void setupAssigneeSpinner(Spinner spinner, Project project) {
+        List<String> usernames = project == null ? new ArrayList<>() : project.getMemberUsernames();
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, usernames);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+    }
+
+    private Project getSelectedProject(Spinner spinner, List<Project> projects) {
+        int selectedIndex = spinner.getSelectedItemPosition();
+        if (selectedIndex < 0 || selectedIndex >= projects.size()) {
+            return null;
+        }
+        return projects.get(selectedIndex);
+    }
+
+    private void setSelectedProject(Spinner spinner, List<Project> projects, String projectId) {
+        for (int i = 0; i < projects.size(); i++) {
+            if (projects.get(i).getId().equals(projectId)) {
+                spinner.setSelection(i);
+                return;
+            }
+        }
+    }
+
+    private void setSelectedChoice(Spinner spinner, String value) {
+        for (int i = 0; i < spinner.getCount(); i++) {
+            if (spinner.getItemAtPosition(i).toString().equals(value)) {
+                spinner.setSelection(i);
+                return;
+            }
+        }
+    }
+
+    private void setSelectedAssignee(Spinner spinner, String username) {
+        for (int i = 0; i < spinner.getCount(); i++) {
+            if (spinner.getItemAtPosition(i).toString().equals(username)) {
+                spinner.setSelection(i);
+                return;
+            }
+        }
+    }
+
+    private String getSelectedAssigneeUsername(Spinner spinner) {
+        Object selected = spinner.getSelectedItem();
+        return selected == null ? "" : selected.toString();
+    }
+
+    private void renderTasks() {
+        tasksContainer.removeAllViews();
+        List<TaskItem> tasks = taskManager.getTasks(true);
+        boolean hasVisibleTask = false;
+        for (TaskItem task : tasks) {
+            if (task.isDeleted() != showDeleted) {
+                continue;
+            }
+            if (!canSeeTask(task)) {
+                continue;
+            }
+            tasksContainer.addView(createTaskCard(task));
+            hasVisibleTask = true;
+        }
+        if (!hasVisibleTask) {
+            TextView emptyText = new TextView(this);
+            emptyText.setText(showDeleted ? "Thùng rác đang trống." : "Chưa có công việc nào.");
+            emptyText.setTextColor(getColor(R.color.auth_body));
+            emptyText.setTextSize(15);
+            emptyText.setPadding(0, dp(16), 0, 0);
+            tasksContainer.addView(emptyText);
+        }
+    }
+
+    private boolean canSeeTask(TaskItem task) {
+        if (currentUser.getRole() == UserRole.ADMIN || currentUser.getRole() == UserRole.MANAGER) {
+            return true;
+        }
+        return currentUser.getUsername().equals(task.getAssigneeUsername());
+    }
+
+    private MaterialCardView createTaskCard(TaskItem task) {
+        MaterialCardView card = new MaterialCardView(this);
+        card.setCardBackgroundColor(getColor(android.R.color.white));
+        card.setRadius(dp(12));
+        card.setCardElevation(dp(2));
+        card.setStrokeWidth(dp(1));
+        card.setStrokeColor(getColor(R.color.card_stroke));
+
+        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        cardParams.setMargins(0, dp(10), 0, 0);
+        card.setLayoutParams(cardParams);
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(16), dp(14), dp(16), dp(14));
+
+        TextView titleText = new TextView(this);
+        titleText.setText(task.getTitle());
+        titleText.setTextColor(getColor(R.color.auth_title));
+        titleText.setTextSize(17);
+        titleText.setTypeface(null, Typeface.BOLD);
+
+        TextView metaText = new TextView(this);
+        metaText.setText("Project: " + getProjectName(task.getProjectId())
+                + "\nAssignee: " + task.getAssigneeUsername()
+                + "\nStatus: " + task.getStatus() + " | Priority: " + task.getPriority()
+                + "\nDeadline: " + (task.getDueDate().isEmpty() ? "N/A" : task.getDueDate()));
+        metaText.setTextColor(getColor(R.color.auth_body));
+        metaText.setTextSize(14);
+        metaText.setPadding(0, dp(8), 0, 0);
+
+        TextView descText = new TextView(this);
+        descText.setText(task.getDescription().isEmpty() ? "Không có mô tả." : task.getDescription());
+        descText.setTextColor(getColor(R.color.auth_body));
+        descText.setTextSize(14);
+        descText.setPadding(0, dp(8), 0, 0);
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setPadding(0, dp(12), 0, 0);
+
+        MaterialButton editButton = new MaterialButton(this);
+        editButton.setText("Sửa");
+        editButton.setAllCaps(false);
+        editButton.setOnClickListener(view -> showTaskDialog(task));
+
+        MaterialButton deleteButton = new MaterialButton(this);
+        deleteButton.setText(task.isDeleted() ? "Khôi phục" : "Xóa mềm");
+        deleteButton.setAllCaps(false);
+        int actionColor = task.isDeleted() ? getColor(R.color.success_green) : getColor(R.color.auth_error);
+        deleteButton.setTextColor(actionColor);
+        deleteButton.setBackgroundTintList(ColorStateList.valueOf(getColor(android.R.color.white)));
+        deleteButton.setStrokeColor(ColorStateList.valueOf(actionColor));
+        deleteButton.setStrokeWidth(dp(1));
+        deleteButton.setVisibility(currentUser.getRole().canAssignTasks() ? View.VISIBLE : View.GONE);
+        deleteButton.setOnClickListener(view -> setTaskDeleted(task, !task.isDeleted()));
+
+        LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+        editParams.setMargins(0, 0, dp(8), 0);
+        actions.addView(editButton, editParams);
+        actions.addView(deleteButton, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+        content.addView(titleText);
+        content.addView(metaText);
+        content.addView(descText);
+        content.addView(actions);
+        card.addView(content);
+        return card;
+    }
+
+    private String getProjectName(String projectId) {
+        for (Project project : projectManager.getProjects()) {
+            if (project.getId().equals(projectId)) {
+                return project.getName();
+            }
+        }
+        return "N/A";
+    }
+
+    private void setTaskDeleted(TaskItem task, boolean deleted) {
+        TaskManager.TaskResult result = taskManager.setDeleted(task.getId(), deleted);
+        Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
+        if (result.isSuccessful()) {
+            renderTasks();
+        }
+    }
+
+    private int dp(int value) {
+        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
+    }
+
+    private void openLoginScreen() {
+        Intent intent = new Intent(this, LoginActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
+    }
+}

@@ -48,10 +48,10 @@ public class ProjectManager {
     ) {
         String normalizedName = normalize(name);
         if (normalizedName.isEmpty()) {
-            return ProjectResult.failure("Ten du an khong duoc de trong.");
+            return ProjectResult.failure("Tên dự án không được để trống.");
         }
         if (managerUsername == null || managerUsername.trim().isEmpty()) {
-            return ProjectResult.failure("Vui long chon manager cho du an.");
+            return ProjectResult.failure("Vui lòng chọn manager cho dự án.");
         }
 
         Project project = new Project(
@@ -81,10 +81,10 @@ public class ProjectManager {
     ) {
         String normalizedName = normalize(name);
         if (normalizedName.isEmpty()) {
-            return ProjectResult.failure("Ten du an khong duoc de trong.");
+            return ProjectResult.failure("Tên dự án không được để trống.");
         }
         if (managerUsername == null || managerUsername.trim().isEmpty()) {
-            return ProjectResult.failure("Vui long chon manager cho du an.");
+            return ProjectResult.failure("Vui lòng chọn manager cho dự án.");
         }
 
         List<Project> projects = getProjects();
@@ -108,7 +108,7 @@ public class ProjectManager {
             return ProjectResult.success(updatedProject);
         }
 
-        return ProjectResult.failure("Khong tim thay du an can cap nhat.");
+        return ProjectResult.failure("Không tìm thấy dự án cần cập nhật.");
     }
 
     public ProjectResult deleteProject(String projectId) {
@@ -120,7 +120,7 @@ public class ProjectManager {
                 return ProjectResult.success(deletedProject);
             }
         }
-        return ProjectResult.failure("Khong tim thay du an can xoa.");
+        return ProjectResult.failure("Không tìm thấy dự án cần xóa.");
     }
 
     private void saveProjects(List<Project> projects) {
@@ -169,7 +169,7 @@ public class ProjectManager {
         }
 
         public static ProjectResult success(Project project) {
-            return new ProjectResult(true, "Thanh cong.", project);
+            return new ProjectResult(true, "Thành công.", project);
         }
 
         public static ProjectResult failure(String message) {
@@ -189,3 +189,4 @@ public class ProjectManager {
         }
     }
 }
+

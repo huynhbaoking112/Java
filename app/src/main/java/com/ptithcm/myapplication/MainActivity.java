@@ -42,7 +42,7 @@ public class MainActivity extends Activity {
         TextView roleText = findViewById(R.id.currentRoleText);
 
         userNameText.setText(currentUser.getFullName() + " (" + currentUser.getUsername() + ")");
-        roleText.setText("Vai tro: " + currentUser.getRole().getDisplayName());
+        roleText.setText("Vai trò: " + currentUser.getRole().getDisplayName());
     }
 
     private void bindActions() {
@@ -54,7 +54,7 @@ public class MainActivity extends Activity {
         );
         logoutButton.setOnClickListener(view -> {
             authManager.logout();
-            Toast.makeText(this, "Da dang xuat.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Đã đăng xuất.", Toast.LENGTH_SHORT).show();
             openLoginScreen();
         });
     }

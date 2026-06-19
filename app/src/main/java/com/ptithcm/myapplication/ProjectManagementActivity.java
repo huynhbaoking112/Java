@@ -3,6 +3,7 @@ package com.ptithcm.myapplication;
 import android.app.Activity;
 import android.app.DatePickerDialog;
 import android.app.Dialog;
+import android.content.res.ColorStateList;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -16,6 +17,7 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.ptithcm.myapplication.auth.AuthManager;
 import com.ptithcm.myapplication.auth.User;
@@ -47,7 +49,7 @@ public class ProjectManagementActivity extends Activity {
             return;
         }
         if (!currentUser.getRole().canManageProjects()) {
-            Toast.makeText(this, "Chi Admin/Manager duoc quan ly du an.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Chỉ Admin/Manager được quản lý dự án.", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
@@ -96,20 +98,20 @@ public class ProjectManagementActivity extends Activity {
         boolean editing = project != null;
         Set<String> selectedMembers = new HashSet<>();
         if (editing) {
-            titleText.setText("Sua du an");
+            titleText.setText("Sửa dự án");
             nameInput.setText(project.getName());
             descriptionInput.setText(project.getDescription());
             startDateInput.setText(project.getStartDate());
             dueDateInput.setText(project.getDueDate());
             selectedMembers.addAll(project.getMemberUsernames());
             setSelectedManager(managerSpinner, managers, project.getManagerUsername());
-            saveButton.setText("Cap nhat du an");
+            saveButton.setText("Cập nhật dự án");
         } else {
-            titleText.setText("Tao du an");
+            titleText.setText("Tạo dự án");
             if (currentUser.getRole() == UserRole.MANAGER) {
                 setSelectedManager(managerSpinner, managers, currentUser.getUsername());
             }
-            saveButton.setText("Tao du an");
+            saveButton.setText("Tạo dự án");
         }
         renderMemberCheckboxes(membersContainer, users, selectedMembers);
 
@@ -143,7 +145,7 @@ public class ProjectManagementActivity extends Activity {
                 return;
             }
 
-            Toast.makeText(this, editing ? "Da cap nhat du an." : "Da tao du an.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, editing ? "Đã cập nhật dự án." : "Đã tạo dự án.", Toast.LENGTH_SHORT).show();
             dialog.dismiss();
             renderProjects();
         });
@@ -265,7 +267,7 @@ public class ProjectManagementActivity extends Activity {
         List<Project> projects = projectManager.getProjects();
         if (projects.isEmpty()) {
             TextView emptyText = new TextView(this);
-            emptyText.setText("Chua co du an nao.");
+            emptyText.setText("Chưa có dự án nào.");
             emptyText.setTextColor(getColor(R.color.auth_body));
             emptyText.setTextSize(15);
             emptyText.setPadding(0, dp(16), 0, 0);
@@ -281,8 +283,8 @@ public class ProjectManagementActivity extends Activity {
     private MaterialCardView createProjectCard(Project project) {
         MaterialCardView card = new MaterialCardView(this);
         card.setCardBackgroundColor(getColor(android.R.color.white));
-        card.setRadius(dp(8));
-        card.setCardElevation(dp(1));
+        card.setRadius(dp(12));
+        card.setCardElevation(dp(2));
         card.setStrokeWidth(dp(1));
         card.setStrokeColor(getColor(R.color.card_stroke));
 
@@ -304,15 +306,15 @@ public class ProjectManagementActivity extends Activity {
         nameText.setTypeface(null, Typeface.BOLD);
 
         TextView descriptionText = new TextView(this);
-        descriptionText.setText(project.getDescription().isEmpty() ? "Khong co mo ta." : project.getDescription());
+        descriptionText.setText(project.getDescription().isEmpty() ? "Không có mô tả." : project.getDescription());
         descriptionText.setTextColor(getColor(R.color.auth_body));
         descriptionText.setTextSize(14);
         descriptionText.setPadding(0, dp(6), 0, 0);
 
         TextView metaText = new TextView(this);
         metaText.setText("Manager: " + project.getManagerUsername()
-                + "\nThanh vien: " + project.getMemberUsernames().size()
-                + "\nThoi gian: " + displayDateRange(project));
+                + "\nThành viên: " + project.getMemberUsernames().size()
+                + "\nThời gian: " + displayDateRange(project));
         metaText.setTextColor(getColor(R.color.auth_body));
         metaText.setTextSize(14);
         metaText.setPadding(0, dp(8), 0, 0);
@@ -321,15 +323,18 @@ public class ProjectManagementActivity extends Activity {
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setPadding(0, dp(12), 0, 0);
 
-        Button editButton = new Button(this);
-        editButton.setText("Sua");
+        MaterialButton editButton = new MaterialButton(this);
+        editButton.setText("Sửa");
         editButton.setAllCaps(false);
         editButton.setOnClickListener(view -> showProjectDialog(project));
 
-        Button deleteButton = new Button(this);
-        deleteButton.setText("Xoa");
+        MaterialButton deleteButton = new MaterialButton(this);
+        deleteButton.setText("Xóa");
         deleteButton.setAllCaps(false);
         deleteButton.setTextColor(getColor(R.color.auth_error));
+        deleteButton.setBackgroundTintList(ColorStateList.valueOf(getColor(android.R.color.white)));
+        deleteButton.setStrokeColor(ColorStateList.valueOf(getColor(R.color.auth_error)));
+        deleteButton.setStrokeWidth(dp(1));
         deleteButton.setOnClickListener(view -> deleteProject(project));
 
         LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(

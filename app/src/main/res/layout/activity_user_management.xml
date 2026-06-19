@@ -26,11 +26,19 @@
                 android:textSize="28sp"
                 android:textStyle="bold" />
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Tạo tài khoản, phân quyền và cập nhật thông tin thành viên"
+                android:textColor="@color/auth_body"
+                android:textSize="15sp" />
+
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/openCreateUserDialogButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="18dp"
                 android:text="Tạo tài khoản" />
 
             <TextView
@@ -55,6 +63,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@android:color/white"
+        android:elevation="8dp"
         app:itemIconTint="@color/footer_menu_selector"
         app:itemTextColor="@color/footer_menu_selector"
         app:labelVisibilityMode="labeled"

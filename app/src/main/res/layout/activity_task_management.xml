@@ -21,7 +21,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Quản lý dự án"
+                android:text="Quản lý công việc"
                 android:textColor="@color/auth_title"
                 android:textSize="28sp"
                 android:textStyle="bold" />
@@ -30,28 +30,36 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="Lập dự án, chọn manager và phân nhóm thành viên"
+                android:text="Tạo, giao việc, theo dõi trạng thái và xử lý thùng rác"
                 android:textColor="@color/auth_body"
                 android:textSize="15sp" />
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/openCreateProjectDialogButton"
+                android:id="@+id/openCreateTaskDialogButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
-                android:text="Tạo dự án" />
+                android:text="Tạo công việc" />
+
+            <Switch
+                android:id="@+id/showDeletedTasksSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:minHeight="48dp"
+                android:text="Xem thùng rác" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:text="Danh sách dự án"
+                android:layout_marginTop="18dp"
+                android:text="Danh sách công việc"
                 android:textColor="@color/auth_title"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
             <LinearLayout
-                android:id="@+id/projectsContainer"
+                android:id="@+id/tasksContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />

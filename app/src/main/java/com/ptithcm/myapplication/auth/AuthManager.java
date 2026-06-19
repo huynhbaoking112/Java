@@ -25,6 +25,7 @@ public class AuthManager {
         preferences = context.getApplicationContext()
                 .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         seedDefaultUsersIfNeeded();
+        migrateDefaultUserDisplayNames();
     }
 
     public AuthResult login(String username, String password) {
@@ -113,16 +114,16 @@ public class AuthManager {
         String normalizedFullName = normalizeFullName(fullName, normalizedUsername);
 
         if (normalizedUsername.isEmpty()) {
-            return AuthResult.failure("Username khong duoc de trong.");
+            return AuthResult.failure("Username không được để trống.");
         }
         if (!normalizedUsername.matches("[a-z0-9._-]{3,24}")) {
-            return AuthResult.failure("Username chi gom chu thuong, so, dau cham, gach duoi hoac gach ngang; dai 3-24 ky tu.");
+            return AuthResult.failure("Username chỉ gồm chữ thường, số, dấu chấm, gạch dưới hoặc gạch ngang; dài 3-24 ký tự.");
         }
         if (password == null || password.length() < 6) {
-            return AuthResult.failure("Mat khau phai co it nhat 6 ky tu.");
+            return AuthResult.failure("Mật khẩu phải có ít nhất 6 ký tự.");
         }
         if (findUser(normalizedUsername) != null) {
-            return AuthResult.failure("Username da ton tai.");
+            return AuthResult.failure("Username đã tồn tại.");
         }
 
         User newUser = new User(
@@ -154,7 +155,7 @@ public class AuthManager {
             );
             if (newPassword != null && !newPassword.trim().isEmpty()) {
                 if (newPassword.length() < 6) {
-                    return AuthResult.failure("Mat khau moi phai co it nhat 6 ky tu.");
+                    return AuthResult.failure("Mật khẩu mới phải có ít nhất 6 ký tự.");
                 }
                 updatedUser = updatedUser.withPasswordHash(hashPassword(newPassword));
             }
@@ -164,14 +165,14 @@ public class AuthManager {
             return AuthResult.success(updatedUser);
         }
 
-        return AuthResult.failure("Khong tim thay tai khoan can cap nhat.");
+        return AuthResult.failure("Không tìm thấy tài khoản cần cập nhật.");
     }
 
     public AuthResult deleteUser(String username) {
         String normalizedUsername = normalizeUsername(username);
         User currentUser = getCurrentUser();
         if (currentUser != null && currentUser.getUsername().equals(normalizedUsername)) {
-            return AuthResult.failure("Khong the xoa tai khoan dang dang nhap.");
+            return AuthResult.failure("Không thể xóa tài khoản đang đăng nhập.");
         }
 
         List<User> users = getUsers();
@@ -183,7 +184,7 @@ public class AuthManager {
             }
         }
 
-        return AuthResult.failure("Khong tim thay tai khoan can xoa.");
+        return AuthResult.failure("Không tìm thấy tài khoản cần xóa.");
     }
 
     private User findUser(String username) {
@@ -202,10 +203,31 @@ public class AuthManager {
         }
 
         List<User> defaultUsers = new ArrayList<>();
-        defaultUsers.add(new User("admin", "Quan tri vien", UserRole.ADMIN, hashPassword("admin123")));
-        defaultUsers.add(new User("manager", "Quan ly du an", UserRole.MANAGER, hashPassword("manager123")));
-        defaultUsers.add(new User("member", "Thanh vien", UserRole.MEMBER, hashPassword("member123")));
+        defaultUsers.add(new User("admin", "Quản trị viên", UserRole.ADMIN, hashPassword("admin123")));
+        defaultUsers.add(new User("manager", "Quản lý dự án", UserRole.MANAGER, hashPassword("manager123")));
+        defaultUsers.add(new User("member", "Thành viên", UserRole.MEMBER, hashPassword("member123")));
         saveUsers(defaultUsers);
+    }
+
+    private void migrateDefaultUserDisplayNames() {
+        List<User> users = getUsers();
+        boolean changed = false;
+        for (int i = 0; i < users.size(); i++) {
+            User user = users.get(i);
+            if (user.getUsername().equals("admin") && user.getFullName().equals("Quan tri vien")) {
+                users.set(i, user.withProfile("Quản trị viên", user.getRole()));
+                changed = true;
+            } else if (user.getUsername().equals("manager") && user.getFullName().equals("Quan ly du an")) {
+                users.set(i, user.withProfile("Quản lý dự án", user.getRole()));
+                changed = true;
+            } else if (user.getUsername().equals("member") && user.getFullName().equals("Thanh vien")) {
+                users.set(i, user.withProfile("Thành viên", user.getRole()));
+                changed = true;
+            }
+        }
+        if (changed) {
+            saveUsers(users);
+        }
     }
 
     private void saveUsers(List<User> users) {
@@ -278,3 +300,4 @@ public class AuthManager {
         }
     }
 }
+

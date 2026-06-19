@@ -55,11 +55,11 @@ public final class FooterNavigationHelper {
                 return true;
             }
             if (itemId == R.id.menu_tasks) {
-                Toast.makeText(activity, "Chuc nang quan ly cong viec se lam o task tiep theo.", Toast.LENGTH_SHORT).show();
-                return false;
+                open(activity, TaskManagementActivity.class);
+                return true;
             }
             if (itemId == R.id.menu_reports) {
-                Toast.makeText(activity, "Chuc nang bao cao thong ke se lam o task tiep theo.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, "Chức năng báo cáo thống kê sẽ làm ở task tiếp theo.", Toast.LENGTH_SHORT).show();
                 return false;
             }
             return false;

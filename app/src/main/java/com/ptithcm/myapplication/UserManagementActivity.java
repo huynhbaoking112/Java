@@ -2,6 +2,7 @@ package com.ptithcm.myapplication;
 
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.res.ColorStateList;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.Window;
@@ -13,6 +14,7 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.ptithcm.myapplication.auth.AuthManager;
 import com.ptithcm.myapplication.auth.User;
@@ -35,7 +37,7 @@ public class UserManagementActivity extends Activity {
             return;
         }
         if (!currentUser.getRole().canManageUsers()) {
-            Toast.makeText(this, "Chi Admin duoc quan ly nguoi dung.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Chỉ Admin được quản lý người dùng.", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
@@ -77,17 +79,17 @@ public class UserManagementActivity extends Activity {
         boolean editing = user != null;
 
         if (editing) {
-            titleText.setText("Sua tai khoan");
+            titleText.setText("Sửa tài khoản");
             usernameInput.setText(user.getUsername());
             usernameInput.setEnabled(false);
             fullNameInput.setText(user.getFullName());
-            passwordInput.setHint("Mat khau moi (de trong neu khong doi)");
+            passwordInput.setHint("Mật khẩu mới (để trống nếu không đổi)");
             setSelectedRole(roleSpinner, user.getRole());
-            saveButton.setText("Cap nhat tai khoan");
+            saveButton.setText("Cập nhật tài khoản");
         } else {
-            titleText.setText("Tao tai khoan");
+            titleText.setText("Tạo tài khoản");
             setSelectedRole(roleSpinner, UserRole.MEMBER);
-            saveButton.setText("Tao tai khoan");
+            saveButton.setText("Tạo tài khoản");
         }
 
         saveButton.setOnClickListener(view -> {
@@ -115,7 +117,7 @@ public class UserManagementActivity extends Activity {
                 return;
             }
 
-            Toast.makeText(this, editing ? "Da cap nhat tai khoan." : "Da tao tai khoan.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, editing ? "Đã cập nhật tài khoản." : "Đã tạo tài khoản.", Toast.LENGTH_SHORT).show();
             dialog.dismiss();
             renderUsers();
         });
@@ -174,8 +176,8 @@ public class UserManagementActivity extends Activity {
     private MaterialCardView createUserCard(User user) {
         MaterialCardView card = new MaterialCardView(this);
         card.setCardBackgroundColor(getColor(android.R.color.white));
-        card.setRadius(dp(8));
-        card.setCardElevation(dp(1));
+        card.setRadius(dp(12));
+        card.setCardElevation(dp(2));
         card.setStrokeWidth(dp(1));
         card.setStrokeColor(getColor(R.color.card_stroke));
 
@@ -197,7 +199,7 @@ public class UserManagementActivity extends Activity {
         nameText.setTypeface(null, android.graphics.Typeface.BOLD);
 
         TextView roleText = new TextView(this);
-        roleText.setText("Vai tro: " + user.getRole().getDisplayName());
+        roleText.setText("Vai trò: " + user.getRole().getDisplayName());
         roleText.setTextColor(getColor(R.color.auth_body));
         roleText.setTextSize(14);
         roleText.setPadding(0, dp(4), 0, 0);
@@ -206,15 +208,18 @@ public class UserManagementActivity extends Activity {
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setPadding(0, dp(12), 0, 0);
 
-        Button editButton = new Button(this);
-        editButton.setText("Sua");
+        MaterialButton editButton = new MaterialButton(this);
+        editButton.setText("Sửa");
         editButton.setAllCaps(false);
         editButton.setOnClickListener(view -> showUserDialog(user));
 
-        Button deleteButton = new Button(this);
-        deleteButton.setText("Xoa");
+        MaterialButton deleteButton = new MaterialButton(this);
+        deleteButton.setText("Xóa");
         deleteButton.setAllCaps(false);
         deleteButton.setTextColor(getColor(R.color.auth_error));
+        deleteButton.setBackgroundTintList(ColorStateList.valueOf(getColor(android.R.color.white)));
+        deleteButton.setStrokeColor(ColorStateList.valueOf(getColor(R.color.auth_error)));
+        deleteButton.setStrokeWidth(dp(1));
         deleteButton.setOnClickListener(view -> deleteUser(user));
 
         LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(
