@@ -8,6 +8,17 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.github.mikephil.charting.charts.BarChart;
+import com.github.mikephil.charting.charts.PieChart;
+import com.github.mikephil.charting.components.Legend;
+import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.data.BarData;
+import com.github.mikephil.charting.data.BarDataSet;
+import com.github.mikephil.charting.data.BarEntry;
+import com.github.mikephil.charting.data.PieData;
+import com.github.mikephil.charting.data.PieDataSet;
+import com.github.mikephil.charting.data.PieEntry;
+import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.ptithcm.myapplication.auth.AuthManager;
 import com.ptithcm.myapplication.auth.User;
 import com.ptithcm.myapplication.auth.UserRole;
@@ -32,6 +43,8 @@ public class ReportsActivity extends AppCompatActivity {
     private ProjectManager projectManager;
     private TaskManager taskManager;
     private User currentUser;
+    private PieChart statusPieChart;
+    private BarChart projectBarChart;
     private LinearLayout statusReportContainer;
     private LinearLayout projectReportContainer;
     private LinearLayout assigneeReportContainer;
@@ -64,6 +77,8 @@ public class ReportsActivity extends AppCompatActivity {
     }
 
     private void bindViews() {
+        statusPieChart = findViewById(R.id.reportStatusPieChart);
+        projectBarChart = findViewById(R.id.reportProjectBarChart);
         statusReportContainer = findViewById(R.id.statusReportContainer);
         projectReportContainer = findViewById(R.id.projectReportContainer);
         assigneeReportContainer = findViewById(R.id.assigneeReportContainer);
@@ -107,6 +122,8 @@ public class ReportsActivity extends AppCompatActivity {
         renderStatusReport(todo, doing, done, overdue, highPriority);
         renderProjectReport(visibleTasks);
         renderAssigneeReport(visibleTasks);
+        renderStatusChart(todo, doing, done, overdue);
+        renderProjectChart(visibleTasks);
     }
 
     private void renderStatusReport(int todo, int doing, int done, int overdue, int highPriority) {
@@ -118,6 +135,48 @@ public class ReportsActivity extends AppCompatActivity {
         addReportRow(statusReportContainer, "Ưu tiên cao", highPriority);
     }
 
+    private void renderStatusChart(int todo, int doing, int done, int overdue) {
+        List<PieEntry> entries = new ArrayList<>();
+        if (todo > 0) {
+            entries.add(new PieEntry(todo, "Todo"));
+        }
+        if (doing > 0) {
+            entries.add(new PieEntry(doing, "Đang làm"));
+        }
+        if (done > 0) {
+            entries.add(new PieEntry(done, "Hoàn thành"));
+        }
+        if (overdue > 0) {
+            entries.add(new PieEntry(overdue, "Quá hạn"));
+        }
+
+        if (entries.isEmpty()) {
+            statusPieChart.clear();
+            statusPieChart.setNoDataText("Chưa có dữ liệu biểu đồ.");
+            statusPieChart.invalidate();
+            return;
+        }
+
+        PieDataSet dataSet = new PieDataSet(entries, "");
+        dataSet.setColors(getColor(R.color.primary_blue), getColor(R.color.accent_amber),
+                getColor(R.color.success_green), getColor(R.color.auth_error));
+        dataSet.setSliceSpace(2f);
+        dataSet.setValueTextColor(getColor(R.color.surface_white));
+        dataSet.setValueTextSize(12f);
+
+        PieData data = new PieData(dataSet);
+        statusPieChart.setData(data);
+        statusPieChart.getDescription().setEnabled(false);
+        statusPieChart.setDrawHoleEnabled(true);
+        statusPieChart.setHoleRadius(48f);
+        statusPieChart.setCenterText("Trạng thái");
+        statusPieChart.setCenterTextColor(getColor(R.color.auth_title));
+        statusPieChart.setEntryLabelColor(getColor(R.color.auth_title));
+        statusPieChart.setEntryLabelTextSize(11f);
+        statusPieChart.getLegend().setWordWrapEnabled(true);
+        statusPieChart.invalidate();
+    }
+
     private void renderProjectReport(List<TaskItem> visibleTasks) {
         projectReportContainer.removeAllViews();
         Map<String, Integer> counts = new HashMap<>();
@@ -126,6 +185,59 @@ public class ReportsActivity extends AppCompatActivity {
             counts.put(projectName, counts.getOrDefault(projectName, 0) + 1);
         }
         renderMapReport(projectReportContainer, counts, "Chưa có dữ liệu dự án.");
+    }
+
+    private void renderProjectChart(List<TaskItem> visibleTasks) {
+        Map<String, Integer> counts = new HashMap<>();
+        for (TaskItem task : visibleTasks) {
+            String projectName = getProjectName(task.getProjectId());
+            counts.put(projectName, counts.getOrDefault(projectName, 0) + 1);
+        }
+
+        if (counts.isEmpty()) {
+            projectBarChart.clear();
+            projectBarChart.setNoDataText("Chưa có dữ liệu biểu đồ.");
+            projectBarChart.invalidate();
+            return;
+        }
+
+        List<String> labels = new ArrayList<>();
+        List<BarEntry> entries = new ArrayList<>();
+        int index = 0;
+        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
+            labels.add(entry.getKey());
+            entries.add(new BarEntry(index, entry.getValue()));
+            index++;
+        }
+
+        BarDataSet dataSet = new BarDataSet(entries, "Task theo dự án");
+        dataSet.setColor(getColor(R.color.primary_blue));
+        dataSet.setValueTextColor(getColor(R.color.auth_title));
+        dataSet.setValueTextSize(11f);
+
+        BarData data = new BarData(dataSet);
+        data.setBarWidth(0.72f);
+        projectBarChart.setData(data);
+        projectBarChart.getDescription().setEnabled(false);
+        projectBarChart.setDrawGridBackground(false);
+        projectBarChart.setFitBars(true);
+        projectBarChart.getAxisLeft().setAxisMinimum(0f);
+        projectBarChart.getAxisRight().setEnabled(false);
+
+        XAxis xAxis = projectBarChart.getXAxis();
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setGranularity(1f);
+        xAxis.setDrawGridLines(false);
+        xAxis.setValueFormatter(new IndexAxisValueFormatter(labels));
+        xAxis.setLabelRotationAngle(-25f);
+
+        Legend legend = projectBarChart.getLegend();
+        legend.setVerticalAlignment(Legend.LegendVerticalAlignment.BOTTOM);
+        legend.setHorizontalAlignment(Legend.LegendHorizontalAlignment.LEFT);
+        legend.setOrientation(Legend.LegendOrientation.HORIZONTAL);
+        legend.setDrawInside(false);
+
+        projectBarChart.invalidate();
     }
 
     private void renderAssigneeReport(List<TaskItem> visibleTasks) {
