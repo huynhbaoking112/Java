@@ -278,6 +278,10 @@ public class TaskManagementActivity extends AppCompatActivity {
             TaskManager.TaskResult result;
 
             if (editing) {
+                if (!canUpdateTask(task)) {
+                    errorText.setText("Bạn không có quyền cập nhật công việc này.");
+                    return;
+                }
                 result = taskManager.updateTask(
                         task.getId(),
                         selectedProject == null ? "" : selectedProject.getId(),
@@ -504,6 +508,11 @@ public class TaskManagementActivity extends AppCompatActivity {
         return currentUser.getUsername().equals(task.getAssigneeUsername());
     }
 
+    private boolean canUpdateTask(TaskItem task) {
+        return currentUser.getRole().canAssignTasks()
+                || currentUser.getUsername().equals(task.getAssigneeUsername());
+    }
+
     private MaterialCardView createTaskCard(TaskItem task) {
         MaterialCardView card = new MaterialCardView(this);
         card.setCardBackgroundColor(getColor(R.color.surface_white));
@@ -632,7 +641,8 @@ public class TaskManagementActivity extends AppCompatActivity {
             renderTaskNotes(task.getId(), notesContainer);
         });
         addAttachmentButton.setOnClickListener(view -> openAttachmentPicker(task.getId(), attachmentsContainer));
-        editFullButton.setVisibility(currentUser.getRole().canAssignTasks() ? View.VISIBLE : View.GONE);
+        editFullButton.setVisibility(canUpdateTask(task) ? View.VISIBLE : View.GONE);
+        editFullButton.setText(currentUser.getRole().canAssignTasks() ? "Sửa công việc" : "Sửa trạng thái");
         editFullButton.setOnClickListener(view -> {
             dialog.dismiss();
             showTaskDialog(taskManager.findTaskById(task.getId()));
