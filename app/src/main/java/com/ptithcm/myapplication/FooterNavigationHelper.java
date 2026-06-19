@@ -30,6 +30,7 @@ public final class FooterNavigationHelper {
         menu.findItem(R.id.menu_users).setVisible(role.canManageUsers());
         menu.findItem(R.id.menu_projects).setVisible(role.canManageProjects());
         menu.findItem(R.id.menu_tasks).setVisible(role.canUpdateAssignedTasks());
+        menu.findItem(R.id.menu_reports).setVisible(role.canViewReports());
 
         footerMenu.setOnItemSelectedListener(null);
         if (selectedItemId != 0) {
@@ -56,8 +57,8 @@ public final class FooterNavigationHelper {
                 open(activity, TaskManagementActivity.class);
                 return true;
             }
-            if (itemId == R.id.menu_settings) {
-                open(activity, SettingsActivity.class);
+            if (itemId == R.id.menu_reports) {
+                open(activity, ReportsActivity.class);
                 return true;
             }
             return false;

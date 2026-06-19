@@ -24,14 +24,14 @@ public class SettingsActivity extends AppCompatActivity {
         }
 
         setContentView(R.layout.activity_settings);
-        FooterNavigationHelper.bind(this, R.id.menu_settings);
+        FooterNavigationHelper.bind(this, 0);
         bindThemeOptions();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        FooterNavigationHelper.bind(this, R.id.menu_settings);
+        FooterNavigationHelper.bind(this, 0);
     }
 
     private void bindThemeOptions() {
