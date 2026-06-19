@@ -28,6 +28,8 @@ import com.ptithcm.myapplication.project.Project;
 import com.ptithcm.myapplication.project.ProjectManager;
 import com.ptithcm.myapplication.task.TaskItem;
 import com.ptithcm.myapplication.task.TaskManager;
+import com.ptithcm.myapplication.task.TaskNote;
+import com.ptithcm.myapplication.task.TaskNoteManager;
 import com.ptithcm.myapplication.task.TaskPriority;
 import com.ptithcm.myapplication.task.TaskStatus;
 
@@ -39,6 +41,7 @@ public class TaskManagementActivity extends Activity {
     private AuthManager authManager;
     private ProjectManager projectManager;
     private TaskManager taskManager;
+    private TaskNoteManager noteManager;
     private User currentUser;
     private LinearLayout tasksContainer;
     private boolean showDeleted;
@@ -49,6 +52,7 @@ public class TaskManagementActivity extends Activity {
         authManager = new AuthManager(this);
         projectManager = new ProjectManager(this);
         taskManager = new TaskManager(this);
+        noteManager = new TaskNoteManager(this);
         currentUser = authManager.getCurrentUser();
 
         if (currentUser == null) {
@@ -341,6 +345,9 @@ public class TaskManagementActivity extends Activity {
         card.setCardElevation(dp(2));
         card.setStrokeWidth(dp(1));
         card.setStrokeColor(getColor(R.color.card_stroke));
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(view -> showTaskDetailDialog(task));
 
         LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -379,9 +386,9 @@ public class TaskManagementActivity extends Activity {
         actions.setPadding(0, dp(12), 0, 0);
 
         MaterialButton editButton = new MaterialButton(this);
-        editButton.setText("Sửa");
+        editButton.setText("Chi tiết");
         editButton.setAllCaps(false);
-        editButton.setOnClickListener(view -> showTaskDialog(task));
+        editButton.setOnClickListener(view -> showTaskDetailDialog(task));
 
         MaterialButton deleteButton = new MaterialButton(this);
         deleteButton.setText(task.isDeleted() ? "Khôi phục" : "Xóa mềm");
@@ -421,6 +428,125 @@ public class TaskManagementActivity extends Activity {
         Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
         if (result.isSuccessful()) {
             renderTasks();
+        }
+    }
+
+    private void showTaskDetailDialog(TaskItem task) {
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_task_detail);
+
+        TextView titleText = dialog.findViewById(R.id.dialogTaskDetailTitleText);
+        TextView metaText = dialog.findViewById(R.id.dialogTaskDetailMetaText);
+        TextView descriptionText = dialog.findViewById(R.id.dialogTaskDetailDescriptionText);
+        TextView tagsText = dialog.findViewById(R.id.dialogTaskDetailTagsText);
+        EditText noteInput = dialog.findViewById(R.id.dialogTaskNoteInput);
+        LinearLayout notesContainer = dialog.findViewById(R.id.dialogTaskNotesContainer);
+        Button addNoteButton = dialog.findViewById(R.id.dialogAddTaskNoteButton);
+        Button editFullButton = dialog.findViewById(R.id.dialogEditFullTaskButton);
+        Button closeButton = dialog.findViewById(R.id.dialogCloseTaskDetailButton);
+
+        renderTaskDetailContent(task, titleText, metaText, descriptionText, tagsText);
+        renderTaskNotes(task.getId(), notesContainer);
+
+        addNoteButton.setOnClickListener(view -> {
+            TaskNoteManager.NoteResult result = noteManager.addNote(
+                    task.getId(),
+                    currentUser.getUsername(),
+                    noteInput.getText().toString()
+            );
+            if (!result.isSuccessful()) {
+                Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            noteInput.setText("");
+            renderTaskNotes(task.getId(), notesContainer);
+        });
+        editFullButton.setVisibility(currentUser.getRole().canAssignTasks() ? View.VISIBLE : View.GONE);
+        editFullButton.setOnClickListener(view -> {
+            dialog.dismiss();
+            showTaskDialog(taskManager.findTaskById(task.getId()));
+        });
+        closeButton.setOnClickListener(view -> dialog.dismiss());
+
+        dialog.setOnShowListener(dialogInterface -> {
+            Window window = dialog.getWindow();
+            if (window != null) {
+                window.setLayout(
+                        (int) (getResources().getDisplayMetrics().widthPixels * 0.92f),
+                        (int) (getResources().getDisplayMetrics().heightPixels * 0.86f)
+                );
+            }
+        });
+        dialog.show();
+    }
+
+    private void renderTaskDetailContent(
+            TaskItem task,
+            TextView titleText,
+            TextView metaText,
+            TextView descriptionText,
+            TextView tagsText
+    ) {
+        titleText.setText(task.getTitle());
+        metaText.setText("Dự án: " + getProjectName(task.getProjectId())
+                + "\nNgười thực hiện: " + task.getAssigneeUsername()
+                + "\nTrạng thái: " + task.getStatus()
+                + "\nƯu tiên: " + task.getPriority()
+                + "\nNgày bắt đầu: " + (task.getStartDate().isEmpty() ? "N/A" : task.getStartDate())
+                + "\nHạn hoàn thành: " + (task.getDueDate().isEmpty() ? "N/A" : task.getDueDate()));
+        descriptionText.setText(task.getDescription().isEmpty() ? "Không có mô tả." : task.getDescription());
+        tagsText.setText(task.getTags().isEmpty() ? "Tags: N/A" : "Tags: " + task.getTags());
+    }
+
+    private void renderTaskNotes(String taskId, LinearLayout notesContainer) {
+        notesContainer.removeAllViews();
+        List<TaskNote> notes = noteManager.getNotes(taskId);
+        if (notes.isEmpty()) {
+            TextView emptyText = new TextView(this);
+            emptyText.setText("Chưa có ghi chú nào.");
+            emptyText.setTextColor(getColor(R.color.auth_body));
+            emptyText.setTextSize(15);
+            emptyText.setPadding(0, dp(10), 0, 0);
+            notesContainer.addView(emptyText);
+            return;
+        }
+
+        for (TaskNote note : notes) {
+            MaterialCardView card = new MaterialCardView(this);
+            card.setCardBackgroundColor(getColor(R.color.surface_white));
+            card.setRadius(dp(10));
+            card.setCardElevation(dp(1));
+            card.setStrokeWidth(dp(1));
+            card.setStrokeColor(getColor(R.color.card_stroke));
+
+            LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            cardParams.setMargins(0, dp(8), 0, 0);
+            card.setLayoutParams(cardParams);
+
+            LinearLayout content = new LinearLayout(this);
+            content.setOrientation(LinearLayout.VERTICAL);
+            content.setPadding(dp(12), dp(10), dp(12), dp(10));
+
+            TextView authorText = new TextView(this);
+            authorText.setText(note.getAuthorUsername() + " - " + note.getCreatedAt());
+            authorText.setTextColor(getColor(R.color.auth_title));
+            authorText.setTextSize(14);
+            authorText.setTypeface(null, Typeface.BOLD);
+
+            TextView contentText = new TextView(this);
+            contentText.setText(note.getContent());
+            contentText.setTextColor(getColor(R.color.auth_body));
+            contentText.setTextSize(15);
+            contentText.setPadding(0, dp(6), 0, 0);
+
+            content.addView(authorText);
+            content.addView(contentText);
+            card.addView(content);
+            notesContainer.addView(card);
         }
     }
 

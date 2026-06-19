@@ -39,6 +39,34 @@ public class TaskManager {
         return tasks;
     }
 
+    public TaskItem findTaskById(String taskId) {
+        for (TaskItem task : getTasks(true)) {
+            if (task.getId().equals(taskId)) {
+                return task;
+            }
+        }
+        return null;
+    }
+
+    public TaskResult updateStatus(String taskId, String status) {
+        TaskItem task = findTaskById(taskId);
+        if (task == null) {
+            return TaskResult.failure("Không tìm thấy công việc.");
+        }
+        return updateTask(
+                task.getId(),
+                task.getProjectId(),
+                task.getTitle(),
+                task.getDescription(),
+                task.getAssigneeUsername(),
+                status,
+                task.getPriority(),
+                task.getStartDate(),
+                task.getDueDate(),
+                task.getTags()
+        );
+    }
+
     public TaskResult createTask(
             String projectId,
             String title,
