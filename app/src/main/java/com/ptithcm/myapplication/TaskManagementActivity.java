@@ -2,9 +2,11 @@ package com.ptithcm.myapplication;
 
 import android.app.DatePickerDialog;
 import android.app.Dialog;
+import android.content.ActivityNotFoundException;
 import android.content.res.ColorStateList;
 import android.content.Intent;
 import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -30,6 +32,8 @@ import com.ptithcm.myapplication.auth.User;
 import com.ptithcm.myapplication.auth.UserRole;
 import com.ptithcm.myapplication.project.Project;
 import com.ptithcm.myapplication.project.ProjectManager;
+import com.ptithcm.myapplication.task.TaskAttachment;
+import com.ptithcm.myapplication.task.TaskAttachmentManager;
 import com.ptithcm.myapplication.task.TaskItem;
 import com.ptithcm.myapplication.task.TaskManager;
 import com.ptithcm.myapplication.task.TaskNote;
@@ -42,10 +46,13 @@ import java.util.Calendar;
 import java.util.List;
 
 public class TaskManagementActivity extends AppCompatActivity {
+    private static final int REQUEST_PICK_TASK_ATTACHMENT = 2201;
+
     private AuthManager authManager;
     private ProjectManager projectManager;
     private TaskManager taskManager;
     private TaskNoteManager noteManager;
+    private TaskAttachmentManager attachmentManager;
     private User currentUser;
     private LinearLayout tasksContainer;
     private EditText searchInput;
@@ -54,6 +61,8 @@ public class TaskManagementActivity extends AppCompatActivity {
     private Spinner projectFilterSpinner;
     private List<Project> filterProjects = new ArrayList<>();
     private boolean showDeleted;
+    private String pendingAttachmentTaskId;
+    private LinearLayout activeAttachmentsContainer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,6 +72,7 @@ public class TaskManagementActivity extends AppCompatActivity {
         projectManager = new ProjectManager(this);
         taskManager = new TaskManager(this);
         noteManager = new TaskNoteManager(this);
+        attachmentManager = new TaskAttachmentManager(this);
         currentUser = authManager.getCurrentUser();
 
         if (currentUser == null) {
@@ -598,12 +608,15 @@ public class TaskManagementActivity extends AppCompatActivity {
         TextView tagsText = dialog.findViewById(R.id.dialogTaskDetailTagsText);
         EditText noteInput = dialog.findViewById(R.id.dialogTaskNoteInput);
         LinearLayout notesContainer = dialog.findViewById(R.id.dialogTaskNotesContainer);
+        LinearLayout attachmentsContainer = dialog.findViewById(R.id.dialogTaskAttachmentsContainer);
         Button addNoteButton = dialog.findViewById(R.id.dialogAddTaskNoteButton);
+        Button addAttachmentButton = dialog.findViewById(R.id.dialogAddTaskAttachmentButton);
         Button editFullButton = dialog.findViewById(R.id.dialogEditFullTaskButton);
         Button closeButton = dialog.findViewById(R.id.dialogCloseTaskDetailButton);
 
         renderTaskDetailContent(task, titleText, metaText, descriptionText, tagsText);
         renderTaskNotes(task.getId(), notesContainer);
+        renderTaskAttachments(task.getId(), attachmentsContainer);
 
         addNoteButton.setOnClickListener(view -> {
             TaskNoteManager.NoteResult result = noteManager.addNote(
@@ -618,6 +631,7 @@ public class TaskManagementActivity extends AppCompatActivity {
             noteInput.setText("");
             renderTaskNotes(task.getId(), notesContainer);
         });
+        addAttachmentButton.setOnClickListener(view -> openAttachmentPicker(task.getId(), attachmentsContainer));
         editFullButton.setVisibility(currentUser.getRole().canAssignTasks() ? View.VISIBLE : View.GONE);
         editFullButton.setOnClickListener(view -> {
             dialog.dismiss();
@@ -704,6 +718,167 @@ public class TaskManagementActivity extends AppCompatActivity {
             card.addView(content);
             notesContainer.addView(card);
         }
+    }
+
+    private void openAttachmentPicker(String taskId, LinearLayout attachmentsContainer) {
+        pendingAttachmentTaskId = taskId;
+        activeAttachmentsContainer = attachmentsContainer;
+
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        try {
+            startActivityForResult(Intent.createChooser(intent, "Chọn file đính kèm"), REQUEST_PICK_TASK_ATTACHMENT);
+        } catch (ActivityNotFoundException exception) {
+            Intent fallbackIntent = new Intent(Intent.ACTION_GET_CONTENT);
+            fallbackIntent.setType("*/*");
+            fallbackIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try {
+                startActivityForResult(Intent.createChooser(fallbackIntent, "Chọn file đính kèm"), REQUEST_PICK_TASK_ATTACHMENT);
+            } catch (ActivityNotFoundException ignored) {
+                Toast.makeText(this, "Không tìm thấy ứng dụng chọn file.", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_PICK_TASK_ATTACHMENT || resultCode != RESULT_OK || data == null || data.getData() == null) {
+            return;
+        }
+        if (pendingAttachmentTaskId == null || pendingAttachmentTaskId.trim().isEmpty()) {
+            return;
+        }
+
+        Uri uri = data.getData();
+        try {
+            int flags = data.getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION;
+            if (flags != 0) {
+                getContentResolver().takePersistableUriPermission(uri, flags);
+            }
+        } catch (RuntimeException ignored) {
+        }
+
+        String name = getAttachmentName(uri);
+        String mimeType = getContentResolver().getType(uri);
+        TaskAttachmentManager.AttachmentResult result = attachmentManager.addAttachment(
+                pendingAttachmentTaskId,
+                name,
+                uri.toString(),
+                mimeType
+        );
+        Toast.makeText(this, result.isSuccessful() ? "Đã thêm file đính kèm." : result.getMessage(), Toast.LENGTH_SHORT).show();
+        if (result.isSuccessful() && activeAttachmentsContainer != null) {
+            renderTaskAttachments(pendingAttachmentTaskId, activeAttachmentsContainer);
+        }
+    }
+
+    private void renderTaskAttachments(String taskId, LinearLayout attachmentsContainer) {
+        attachmentsContainer.removeAllViews();
+        List<TaskAttachment> attachments = attachmentManager.getAttachments(taskId);
+        if (attachments.isEmpty()) {
+            TextView emptyText = new TextView(this);
+            emptyText.setText("Chưa có file đính kèm.");
+            emptyText.setTextColor(getColor(R.color.auth_body));
+            emptyText.setTextSize(15);
+            emptyText.setPadding(0, dp(10), 0, 0);
+            attachmentsContainer.addView(emptyText);
+            return;
+        }
+
+        for (TaskAttachment attachment : attachments) {
+            MaterialCardView card = new MaterialCardView(this);
+            card.setCardBackgroundColor(getColor(R.color.surface_white));
+            card.setRadius(dp(10));
+            card.setCardElevation(dp(1));
+            card.setStrokeWidth(dp(1));
+            card.setStrokeColor(getColor(R.color.card_stroke));
+
+            LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            cardParams.setMargins(0, dp(8), 0, 0);
+            card.setLayoutParams(cardParams);
+
+            LinearLayout content = new LinearLayout(this);
+            content.setOrientation(LinearLayout.VERTICAL);
+            content.setPadding(dp(12), dp(10), dp(12), dp(10));
+
+            TextView nameText = new TextView(this);
+            nameText.setText(attachment.getName());
+            nameText.setTextColor(getColor(R.color.auth_title));
+            nameText.setTextSize(15);
+            nameText.setTypeface(null, Typeface.BOLD);
+
+            TextView metaText = new TextView(this);
+            metaText.setText((attachment.getMimeType().isEmpty() ? "File" : attachment.getMimeType())
+                    + " - " + attachment.getCreatedAt());
+            metaText.setTextColor(getColor(R.color.auth_body));
+            metaText.setTextSize(13);
+            metaText.setPadding(0, dp(4), 0, 0);
+
+            LinearLayout actions = new LinearLayout(this);
+            actions.setOrientation(LinearLayout.HORIZONTAL);
+            actions.setPadding(0, dp(8), 0, 0);
+
+            MaterialButton openButton = new MaterialButton(this);
+            openButton.setText("Mở");
+            openButton.setAllCaps(false);
+            openButton.setOnClickListener(view -> openAttachment(attachment));
+
+            MaterialButton deleteButton = new MaterialButton(this);
+            deleteButton.setText("Xóa");
+            deleteButton.setAllCaps(false);
+            deleteButton.setTextColor(getColor(R.color.auth_error));
+            deleteButton.setBackgroundTintList(ColorStateList.valueOf(getColor(R.color.surface_white)));
+            deleteButton.setStrokeColor(ColorStateList.valueOf(getColor(R.color.auth_error)));
+            deleteButton.setStrokeWidth(dp(1));
+            deleteButton.setOnClickListener(view -> {
+                TaskAttachmentManager.AttachmentResult result = attachmentManager.deleteAttachment(attachment.getId());
+                Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
+                if (result.isSuccessful()) {
+                    renderTaskAttachments(taskId, attachmentsContainer);
+                }
+            });
+
+            LinearLayout.LayoutParams openParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+            openParams.setMargins(0, 0, dp(8), 0);
+            actions.addView(openButton, openParams);
+            actions.addView(deleteButton, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+            content.addView(nameText);
+            content.addView(metaText);
+            content.addView(actions);
+            card.addView(content);
+            attachmentsContainer.addView(card);
+        }
+    }
+
+    private void openAttachment(TaskAttachment attachment) {
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(Uri.parse(attachment.getUri()), attachment.getMimeType().isEmpty() ? "*/*" : attachment.getMimeType());
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException exception) {
+            Toast.makeText(this, "Không có ứng dụng mở file này.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private String getAttachmentName(Uri uri) {
+        String lastPathSegment = uri.getLastPathSegment();
+        if (lastPathSegment == null || lastPathSegment.trim().isEmpty()) {
+            return "File đính kèm";
+        }
+        int separatorIndex = Math.max(lastPathSegment.lastIndexOf('/'), lastPathSegment.lastIndexOf(':'));
+        if (separatorIndex >= 0 && separatorIndex < lastPathSegment.length() - 1) {
+            return lastPathSegment.substring(separatorIndex + 1);
+        }
+        return lastPathSegment;
     }
 
     private int dp(int value) {

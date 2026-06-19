@@ -88,6 +88,30 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:orientation="vertical" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="Đính kèm"
+                android:textColor="@color/auth_title"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/dialogAddTaskAttachmentButton"
+                style="@style/Widget.TaskManager.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Thêm file / hình ảnh" />
+
+            <LinearLayout
+                android:id="@+id/dialogTaskAttachmentsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical" />
         </LinearLayout>
     </ScrollView>
 
