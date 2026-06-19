@@ -108,6 +108,84 @@ public class AuthManager {
         return users;
     }
 
+    public AuthResult createUser(String username, String fullName, UserRole role, String password) {
+        String normalizedUsername = normalizeUsername(username);
+        String normalizedFullName = normalizeFullName(fullName, normalizedUsername);
+
+        if (normalizedUsername.isEmpty()) {
+            return AuthResult.failure("Username khong duoc de trong.");
+        }
+        if (!normalizedUsername.matches("[a-z0-9._-]{3,24}")) {
+            return AuthResult.failure("Username chi gom chu thuong, so, dau cham, gach duoi hoac gach ngang; dai 3-24 ky tu.");
+        }
+        if (password == null || password.length() < 6) {
+            return AuthResult.failure("Mat khau phai co it nhat 6 ky tu.");
+        }
+        if (findUser(normalizedUsername) != null) {
+            return AuthResult.failure("Username da ton tai.");
+        }
+
+        User newUser = new User(
+                normalizedUsername,
+                normalizedFullName,
+                role == null ? UserRole.MEMBER : role,
+                hashPassword(password)
+        );
+        List<User> users = getUsers();
+        users.add(newUser);
+        saveUsers(users);
+        return AuthResult.success(newUser);
+    }
+
+    public AuthResult updateUser(String username, String fullName, UserRole role, String newPassword) {
+        String normalizedUsername = normalizeUsername(username);
+        String normalizedFullName = normalizeFullName(fullName, normalizedUsername);
+        List<User> users = getUsers();
+
+        for (int i = 0; i < users.size(); i++) {
+            User existingUser = users.get(i);
+            if (!existingUser.getUsername().equals(normalizedUsername)) {
+                continue;
+            }
+
+            User updatedUser = existingUser.withProfile(
+                    normalizedFullName,
+                    role == null ? existingUser.getRole() : role
+            );
+            if (newPassword != null && !newPassword.trim().isEmpty()) {
+                if (newPassword.length() < 6) {
+                    return AuthResult.failure("Mat khau moi phai co it nhat 6 ky tu.");
+                }
+                updatedUser = updatedUser.withPasswordHash(hashPassword(newPassword));
+            }
+
+            users.set(i, updatedUser);
+            saveUsers(users);
+            return AuthResult.success(updatedUser);
+        }
+
+        return AuthResult.failure("Khong tim thay tai khoan can cap nhat.");
+    }
+
+    public AuthResult deleteUser(String username) {
+        String normalizedUsername = normalizeUsername(username);
+        User currentUser = getCurrentUser();
+        if (currentUser != null && currentUser.getUsername().equals(normalizedUsername)) {
+            return AuthResult.failure("Khong the xoa tai khoan dang dang nhap.");
+        }
+
+        List<User> users = getUsers();
+        for (int i = 0; i < users.size(); i++) {
+            if (users.get(i).getUsername().equals(normalizedUsername)) {
+                User deletedUser = users.remove(i);
+                saveUsers(users);
+                return AuthResult.success(deletedUser);
+            }
+        }
+
+        return AuthResult.failure("Khong tim thay tai khoan can xoa.");
+    }
+
     private User findUser(String username) {
         String normalizedUsername = normalizeUsername(username);
         for (User user : getUsers()) {
@@ -149,6 +227,13 @@ public class AuthManager {
             return "";
         }
         return username.trim().toLowerCase();
+    }
+
+    private String normalizeFullName(String fullName, String fallbackUsername) {
+        if (fullName == null || fullName.trim().isEmpty()) {
+            return fallbackUsername;
+        }
+        return fullName.trim();
     }
 
     private String hashPassword(String password) {

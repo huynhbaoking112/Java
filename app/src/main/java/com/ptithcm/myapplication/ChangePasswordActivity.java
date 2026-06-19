@@ -28,6 +28,7 @@ public class ChangePasswordActivity extends Activity {
         }
 
         setContentView(R.layout.activity_change_password);
+        FooterNavigationHelper.bind(this, 0);
         currentPasswordInput = findViewById(R.id.currentPasswordInput);
         newPasswordInput = findViewById(R.id.newPasswordInput);
         confirmPasswordInput = findViewById(R.id.confirmPasswordInput);
@@ -37,6 +38,12 @@ public class ChangePasswordActivity extends Activity {
 
         saveButton.setOnClickListener(view -> handleChangePassword());
         cancelButton.setOnClickListener(view -> finish());
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        FooterNavigationHelper.bind(this, 0);
     }
 
     private void handleChangePassword() {

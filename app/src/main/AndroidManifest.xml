@@ -12,6 +12,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
         <activity
+            android:name=".UserManagementActivity"
+            android:exported="false" />
+        <activity
             android:name=".ChangePasswordActivity"
             android:exported="false" />
         <activity

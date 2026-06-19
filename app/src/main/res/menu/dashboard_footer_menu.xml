@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/menu_dashboard"
+        android:enabled="true"
+        android:icon="@android:drawable/ic_menu_view"
+        android:title="Home" />
+    <item
+        android:id="@+id/menu_users"
+        android:icon="@android:drawable/ic_menu_manage"
+        android:title="Users" />
+    <item
+        android:id="@+id/menu_projects"
+        android:icon="@android:drawable/ic_menu_agenda"
+        android:title="Projects" />
+    <item
+        android:id="@+id/menu_tasks"
+        android:icon="@android:drawable/ic_menu_edit"
+        android:title="Tasks" />
+    <item
+        android:id="@+id/menu_reports"
+        android:icon="@android:drawable/ic_menu_sort_by_size"
+        android:title="Reports" />
+</menu>

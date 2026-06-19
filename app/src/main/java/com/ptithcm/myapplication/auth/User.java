@@ -36,6 +36,10 @@ public class User {
         return new User(username, fullName, role, newPasswordHash);
     }
 
+    public User withProfile(String newFullName, UserRole newRole) {
+        return new User(username, newFullName, newRole, passwordHash);
+    }
+
     public JSONObject toJson() throws JSONException {
         JSONObject object = new JSONObject();
         object.put("username", username);
