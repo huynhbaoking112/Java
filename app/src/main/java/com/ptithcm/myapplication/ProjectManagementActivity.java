@@ -1,6 +1,5 @@
 package com.ptithcm.myapplication;
 
-import android.app.Activity;
 import android.app.DatePickerDialog;
 import android.app.Dialog;
 import android.content.res.ColorStateList;
@@ -17,6 +16,8 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.ptithcm.myapplication.auth.AuthManager;
@@ -31,7 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class ProjectManagementActivity extends Activity {
+public class ProjectManagementActivity extends AppCompatActivity {
     private AuthManager authManager;
     private ProjectManager projectManager;
     private User currentUser;
@@ -39,6 +40,7 @@ public class ProjectManagementActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        ThemePreferenceManager.applySavedTheme(this);
         super.onCreate(savedInstanceState);
         authManager = new AuthManager(this);
         projectManager = new ProjectManager(this);
@@ -282,7 +284,7 @@ public class ProjectManagementActivity extends Activity {
 
     private MaterialCardView createProjectCard(Project project) {
         MaterialCardView card = new MaterialCardView(this);
-        card.setCardBackgroundColor(getColor(android.R.color.white));
+        card.setCardBackgroundColor(getColor(R.color.surface_white));
         card.setRadius(dp(12));
         card.setCardElevation(dp(2));
         card.setStrokeWidth(dp(1));
@@ -332,7 +334,7 @@ public class ProjectManagementActivity extends Activity {
         deleteButton.setText("Xóa");
         deleteButton.setAllCaps(false);
         deleteButton.setTextColor(getColor(R.color.auth_error));
-        deleteButton.setBackgroundTintList(ColorStateList.valueOf(getColor(android.R.color.white)));
+        deleteButton.setBackgroundTintList(ColorStateList.valueOf(getColor(R.color.surface_white)));
         deleteButton.setStrokeColor(ColorStateList.valueOf(getColor(R.color.auth_error)));
         deleteButton.setStrokeWidth(dp(1));
         deleteButton.setOnClickListener(view -> deleteProject(project));

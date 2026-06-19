@@ -62,7 +62,7 @@
         android:id="@+id/dashboardFooterMenu"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@android:color/white"
+        android:background="@color/surface_white"
         android:elevation="8dp"
         app:itemIconTint="@color/footer_menu_selector"
         app:itemTextColor="@color/footer_menu_selector"

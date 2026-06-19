@@ -1,6 +1,5 @@
 package com.ptithcm.myapplication;
 
-import android.app.Activity;
 import android.app.DatePickerDialog;
 import android.app.Dialog;
 import android.content.Intent;
@@ -15,6 +14,8 @@ import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.card.MaterialCardView;
 import com.ptithcm.myapplication.auth.AuthManager;
@@ -32,7 +33,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
-public class TaskDetailActivity extends Activity {
+public class TaskDetailActivity extends AppCompatActivity {
     public static final String EXTRA_TASK_ID = "task_id";
 
     private AuthManager authManager;
@@ -53,6 +54,7 @@ public class TaskDetailActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        ThemePreferenceManager.applySavedTheme(this);
         super.onCreate(savedInstanceState);
         authManager = new AuthManager(this);
         projectManager = new ProjectManager(this);

@@ -3,7 +3,6 @@ package com.ptithcm.myapplication;
 import android.app.Activity;
 import android.content.Intent;
 import android.view.Menu;
-import android.widget.Toast;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.ptithcm.myapplication.auth.AuthManager;
@@ -30,7 +29,6 @@ public final class FooterNavigationHelper {
         Menu menu = footerMenu.getMenu();
         menu.findItem(R.id.menu_users).setVisible(role.canManageUsers());
         menu.findItem(R.id.menu_projects).setVisible(role.canManageProjects());
-        menu.findItem(R.id.menu_reports).setVisible(role.canViewReports());
         menu.findItem(R.id.menu_tasks).setVisible(role.canUpdateAssignedTasks());
 
         footerMenu.setOnItemSelectedListener(null);
@@ -58,9 +56,9 @@ public final class FooterNavigationHelper {
                 open(activity, TaskManagementActivity.class);
                 return true;
             }
-            if (itemId == R.id.menu_reports) {
-                Toast.makeText(activity, "Chức năng báo cáo thống kê sẽ làm ở task tiếp theo.", Toast.LENGTH_SHORT).show();
-                return false;
+            if (itemId == R.id.menu_settings) {
+                open(activity, SettingsActivity.class);
+                return true;
             }
             return false;
         });

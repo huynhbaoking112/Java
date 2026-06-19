@@ -1,6 +1,5 @@
 package com.ptithcm.myapplication;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
@@ -8,9 +7,11 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.ptithcm.myapplication.auth.AuthManager;
 
-public class ChangePasswordActivity extends Activity {
+public class ChangePasswordActivity extends AppCompatActivity {
     private AuthManager authManager;
     private EditText currentPasswordInput;
     private EditText newPasswordInput;
@@ -19,6 +20,7 @@ public class ChangePasswordActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        ThemePreferenceManager.applySavedTheme(this);
         super.onCreate(savedInstanceState);
         authManager = new AuthManager(this);
 

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MyApplication" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/primary_blue</item>
+        <item name="colorPrimaryVariant">@color/primary_blue_dark</item>
+        <item name="colorOnPrimary">#FF0E1421</item>
+        <item name="colorSecondary">@color/success_green</item>
+        <item name="colorOnSecondary">#FF0E1421</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/screen_background</item>
+        <item name="android:navigationBarColor">@color/surface_white</item>
+        <item name="materialButtonStyle">@style/Widget.TaskManager.Button</item>
+        <item name="textInputStyle">@style/Widget.TaskManager.TextInputLayout</item>
+    </style>
+</resources>

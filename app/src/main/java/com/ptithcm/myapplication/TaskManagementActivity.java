@@ -1,6 +1,5 @@
 package com.ptithcm.myapplication;
 
-import android.app.Activity;
 import android.app.DatePickerDialog;
 import android.app.Dialog;
 import android.content.res.ColorStateList;
@@ -18,6 +17,8 @@ import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
@@ -37,7 +38,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
-public class TaskManagementActivity extends Activity {
+public class TaskManagementActivity extends AppCompatActivity {
     private AuthManager authManager;
     private ProjectManager projectManager;
     private TaskManager taskManager;
@@ -48,6 +49,7 @@ public class TaskManagementActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        ThemePreferenceManager.applySavedTheme(this);
         super.onCreate(savedInstanceState);
         authManager = new AuthManager(this);
         projectManager = new ProjectManager(this);
@@ -340,7 +342,7 @@ public class TaskManagementActivity extends Activity {
 
     private MaterialCardView createTaskCard(TaskItem task) {
         MaterialCardView card = new MaterialCardView(this);
-        card.setCardBackgroundColor(getColor(android.R.color.white));
+        card.setCardBackgroundColor(getColor(R.color.surface_white));
         card.setRadius(dp(12));
         card.setCardElevation(dp(2));
         card.setStrokeWidth(dp(1));
@@ -395,7 +397,7 @@ public class TaskManagementActivity extends Activity {
         deleteButton.setAllCaps(false);
         int actionColor = task.isDeleted() ? getColor(R.color.success_green) : getColor(R.color.auth_error);
         deleteButton.setTextColor(actionColor);
-        deleteButton.setBackgroundTintList(ColorStateList.valueOf(getColor(android.R.color.white)));
+        deleteButton.setBackgroundTintList(ColorStateList.valueOf(getColor(R.color.surface_white)));
         deleteButton.setStrokeColor(ColorStateList.valueOf(actionColor));
         deleteButton.setStrokeWidth(dp(1));
         deleteButton.setVisibility(currentUser.getRole().canAssignTasks() ? View.VISIBLE : View.GONE);

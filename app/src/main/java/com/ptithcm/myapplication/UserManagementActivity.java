@@ -1,6 +1,5 @@
 package com.ptithcm.myapplication;
 
-import android.app.Activity;
 import android.app.Dialog;
 import android.content.res.ColorStateList;
 import android.content.Intent;
@@ -14,6 +13,8 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.ptithcm.myapplication.auth.AuthManager;
@@ -22,12 +23,13 @@ import com.ptithcm.myapplication.auth.UserRole;
 
 import java.util.List;
 
-public class UserManagementActivity extends Activity {
+public class UserManagementActivity extends AppCompatActivity {
     private AuthManager authManager;
     private LinearLayout usersContainer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        ThemePreferenceManager.applySavedTheme(this);
         super.onCreate(savedInstanceState);
         authManager = new AuthManager(this);
 
@@ -175,7 +177,7 @@ public class UserManagementActivity extends Activity {
 
     private MaterialCardView createUserCard(User user) {
         MaterialCardView card = new MaterialCardView(this);
-        card.setCardBackgroundColor(getColor(android.R.color.white));
+        card.setCardBackgroundColor(getColor(R.color.surface_white));
         card.setRadius(dp(12));
         card.setCardElevation(dp(2));
         card.setStrokeWidth(dp(1));
@@ -217,7 +219,7 @@ public class UserManagementActivity extends Activity {
         deleteButton.setText("Xóa");
         deleteButton.setAllCaps(false);
         deleteButton.setTextColor(getColor(R.color.auth_error));
-        deleteButton.setBackgroundTintList(ColorStateList.valueOf(getColor(android.R.color.white)));
+        deleteButton.setBackgroundTintList(ColorStateList.valueOf(getColor(R.color.surface_white)));
         deleteButton.setStrokeColor(ColorStateList.valueOf(getColor(R.color.auth_error)));
         deleteButton.setStrokeWidth(dp(1));
         deleteButton.setOnClickListener(view -> deleteUser(user));
